@@ -10,11 +10,17 @@
     "lint": "eslint .",
     "test": "vitest run",
     "check:design": "node scripts/check-design.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "db:check": "vitest run --config vitest.db.config.mts",
     "check": "npm run check:design && npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
+    "@neondatabase/serverless": "1.2.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
+    "drizzle-orm": "0.45.4",
     "lucide-react": "^1.72.0",
     "next": "16.4.6",
     "radix-ui": "^1.8.1",
@@ -31,10 +37,12 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "jsdom": "^31.0.0",
     "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
     "typescript": "^5",
     "vitest": "^5.1.0"
   }

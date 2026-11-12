@@ -9,7 +9,13 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: "node", environment: "node", include: ["tests/**/*.test.ts"] },
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["tests/**/*.test.ts"],
+          // Real-database tests run only via `npm run db:check` (vitest.db.config.mts).
+          exclude: ["tests/db/**", "node_modules/**"],
+        },
       },
       {
         extends: true,
