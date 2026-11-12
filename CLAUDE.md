@@ -7,7 +7,7 @@ relevant guide in `node_modules/next/dist/docs/` and heed deprecation notices.
 ## Commands
 - `npm run dev` / `npm run build` / `npm start`
 - `npm run typecheck` (tsc --noEmit), `npm run lint` (eslint .), `npm run test` (vitest run)
-- `npm run check` runs typecheck, lint, test, build. A step is done only when it passes.
+- `npm run check` runs check:design (scripts/check-design.mjs), typecheck, lint, test, build. A step is done only when it passes.
 - npm only (not pnpm). Run installs and deletes as separate commands, never chained.
 
 ## Folder map
@@ -17,7 +17,7 @@ relevant guide in `node_modules/next/dist/docs/` and heed deprecation notices.
 - `lib/services/` transactional commands and read models
 - `lib/db/` schema, `read.ts` (neon-http), `with-tx.ts` (the only Pool)
 - `components/`, `emails/`, `drizzle/` (migrations + append-only triggers), `scripts/seed.ts`
-- `tests/` vitest, `tests/**/*.test.ts`
+- `tests/` vitest: `tests/**/*.test.ts` (node), `tests/**/*.test.tsx` (jsdom)
 
 ## Ledger rules (non-negotiable)
 - Append-only, never UPDATE or DELETE: `policy_events`, `ledger_entries`,

@@ -35,3 +35,22 @@ Append-only. One entry per decision, dated, with a one-line reason.
 - **Cache Components off, standard dynamic rendering.** Every page is per-user and must be fresh.
 - **agentRules off; CLAUDE.md is the single rules file.** Stops `next dev` re-creating AGENTS.md.
 - **@types/node ^24.** Matches the Node 24 runtime; required by vitest 5.1.0.
+- **Kept the template's first commit and added one commit per step on top.** Preserves the create-next-app baseline and gives a reviewable per-step history.
+- **Vitest config is `vitest.config.mts`.** Avoids the native config loader warning.
+- **README is a title-only stub until step 13.** Real docs are written once the app is complete.
+- **shadcn/ui: Radix base, nova preset, pointer cursor on, light only.** Mature accessible primitives; we restyle them to our tokens.
+- **Dev-only `/dev/ui` page showing every primitive, 404 in production, never linked.** One place to eyeball the design system without shipping it.
+- **ISO dates (2026-02-22) in tables via DateCell.** Sorts and scans cleanly; matches the earlier table-date decision.
+- **Playwright for visual checks (screenshots of /dev/ui at 1440px and 390px).** Catches layout and unmapped-token problems that unit tests cannot.
+- **`--pending` darkened from #A86A12 to #965F10.** The original was 3.76-4.43:1 on our backgrounds; the new value passes 4.5:1 on bg, surface and sunken.
+- **shadcn `--accent` hover usages replaced by `bg-sunken`; `--accent` stays #1F3A5F.** Avoids the name clash with our brand accent.
+- **All radius tokens (sm/md/lg/xl) are 2px.** shadcn's `calc(var(--radius) - 2px)` would otherwise be 0px.
+- **Type scale overrides Tailwind: xs 12, sm 13, base 14, lg 16, xl 20; body 13px.** Dense financial UI with a small, fixed scale.
+- **Button variants primary/secondary/destructive only; sizes sm (28px) and default (32px) only.** Small, consistent button vocabulary.
+- **formatCents(-123400) = -$1,234.00; formatBalance(0) = $0.00; both throw on non-integer cents.** Signed amounts for reversals; non-integers are bugs.
+- **MonoId takes explicit prefix and value props; Tag is uppercase 12px/500 with letter-spacing.** No string parsing; Plex has no true small caps.
+- **Select popover uses `position="popper"` (drops below the trigger).** Radix's item-aligned default overlaid the trigger, 4px off its left edge.
+- **LedgerTable (step 6) must handle narrow screens.** At 390px the /dev/ui table scrolls inside its container with Amount/Balance off-screen and no cue.
+- **Accept shadcn's `cn` package (lib/utils.ts re-exports it) and `shadcn` as a runtime dep for `shadcn/tailwind.css`.** It is what shadcn 4.23.0 generates; the CSS supplies the data-open/closed variants.
+- **Table headers 12px muted; destructive button border in the fail colour; status labels capitalised (Pending/Succeeded/Failed); MoneyCell and DateCell are spans placed inside TableCell.** Quiet headers, clear destructive intent, readable labels, reusable outside tables.
+- **npm audit findings (dev tooling: shadcn CLI deps, typescript-eslint) left alone for now.** No runtime exposure; fixes need breaking upgrades.
