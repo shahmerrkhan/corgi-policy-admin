@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // CLAUDE.md is the single rules file; stop `next dev` from (re)writing AGENTS.md.
+  agentRules: false,
   turbopack: {
     rules: {
       "*.css": {
