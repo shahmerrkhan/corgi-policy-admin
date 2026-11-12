@@ -54,3 +54,25 @@ Append-only. One entry per decision, dated, with a one-line reason.
 - **Accept shadcn's `cn` package (lib/utils.ts re-exports it) and `shadcn` as a runtime dep for `shadcn/tailwind.css`.** It is what shadcn 4.23.0 generates; the CSS supplies the data-open/closed variants.
 - **Table headers 12px muted; destructive button border in the fail colour; status labels capitalised (Pending/Succeeded/Failed); MoneyCell and DateCell are spans placed inside TableCell.** Quiet headers, clear destructive intent, readable labels, reusable outside tables.
 - **npm audit findings (dev tooling: shadcn CLI deps, typescript-eslint) left alone for now.** No runtime exposure; fixes need breaking upgrades.
+- **Step 2 plan approved with the staff-engineer review changes below.** Owner took each call after a read-only review.
+- **A credit first reduces the charge's unpaid amount and releases only max(0, credit - unpaid).** Releasing cash only to re-allocate it to the same charge is circular noise.
+- **Cancellation credit = charged - round_half_up(P x days_used / days_in_term), P = line's full-term premium, days_used from the charge's own effective date.** earned + credit always equals charged; computing the credit directly drifted by 1 cent in 16,653 of 66,795 date pairs at P = 100,001.
+- **Cancellation and corrections apply only to live (not reversed) charges; correcting a reversed charge returns CHARGE_ALREADY_REVERSED with the latest charge in the chain.** Prevents double credits and corrections of stale charges.
+- **A reversal copies the original amount negated, never recomputes it.** The reversal must cancel the original exactly.
+- **Payment invariant is refund-aware: 0 <= net allocations + refunded <= amount; refundable = amount - net allocations - refunded; plus cash conservation (payments = allocations + unapplied + refunds).** Stops refunded cash from being allocated again.
+- **One helper, chargeNetOpen (charge amount net of reversal and credits), caps cash on a charge in the release planner, allocateFifo and the invariants.** One definition, no drift between modules.
+- **planAllocationRelease releases min(excess, net allocated), throws if the credit exceeds the charge's net amount, and every release row carries sourceEntryId.** Releases are bounded and traceable to the entry that caused them.
+- **Dates use integer days-from-civil math only (no Date objects); addTwelveMonths, daysBetween and a validated parseIsoDate are exported.** Time zones and DST can never shift a calendar date.
+- **Domain exposes planCancellation (credits, releases, re-allocation, refund preview), isBackdatedOver30Days, payment status (only succeeded payments allocate or refund) and a type on every entry (CHARGE, REVERSAL, CREDIT, PAYMENT, REFUND).** Steps 3+ need these for the one-screen cancel, Stripe statuses and the ledger table.
+- **Premium = round_half_up(limit_cents x rate_bps / 10000), rate a whole number of bps, rounded once.** Integer cents with one rounding point.
+- **Feb 29 term start is rejected with INVALID_TERM_START.** Same day next year does not exist; terms must be exactly 12 months.
+- **Business rejections return Result { ok: false, code }; bad input (non-integer cents, invalid date, bad days, term not 12 months) throws DomainError.** Users see rejections; caller bugs fail loudly.
+- **FIFO and newest-first ties break on date, then seq.** Deterministic order for same-day rows.
+- **Cancellation and correction dates must fall in [term_start, term_end).** Matches the end-excluded range rule.
+- **Released cash is re-allocated FIFO, oldest payment's unapplied cash first; the rest stays on account.** Matches the existing FIFO rule; refunds stay a separate broker action.
+- **FIFO "oldest charge" uses the posting date, then seq (implementation choice, owner to confirm).** A rebook is ordered by when it was posted, not by its effective date.
+- **Planners take a newId function and give new entries seq = max existing seq + 1 (implementation choice, owner to confirm).** Keeps the domain pure; step 3 must store this seq so FIFO order survives.
+- **prorate allows 0 days in effect (earned on the cancel day); negative days and a non-positive term throw (implementation choice, owner to confirm).** Cancelling on a charge's effective date earns nothing.
+- **Non-release allocation rows carry sourceEntryId too: the PAYMENT or new CHARGE entry, null for a cancellation's re-allocation (implementation choice, owner to confirm).** Every row traces to its cause where there is a single one.
+- **Recording the same payment twice throws; correcting or cancelling a charge that already has credits throws (implementation choice, owner to confirm).** Webhook dedupe belongs in the service; credits exist only after cancellation, which blocks both.
+- **tests/domain/purity.test.ts enforces no outside imports, no clock, no Math/float helpers and no "/" outside int.ts in lib/domain.** Keeps the domain rules from regressing silently.
