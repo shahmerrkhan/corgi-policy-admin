@@ -18,7 +18,7 @@ const exported = Object.entries(actions).filter(([, v]) => typeof v === "functio
 ][];
 
 function validForm(): FormData {
-  // Valid for both actions, so a rejection can only come from the auth check.
+  // Valid for every action, so a rejection can only come from the auth check.
   const fd = new FormData();
   const fields: Record<string, string> = {
     customerId: "00000000-0000-4000-8000-000000000002",
@@ -36,6 +36,10 @@ function validForm(): FormData {
     postalCode: "M5H 1A1",
     country: "CA",
     businessDescription: "Roofing",
+    policyId: "00000000-0000-4000-8000-0000000000a1",
+    requestId: "00000000-0000-4000-8000-0000000000b1",
+    name: "Liquor Liability",
+    effectiveDate: "2026-03-01",
   };
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   return fd;
@@ -47,7 +51,7 @@ describe("actions/broker.ts guard", () => {
   });
 
   it("exports the broker actions (and nothing is skipped)", () => {
-    expect(exported.map(([name]) => name).sort()).toEqual(["createCustomer", "issuePolicy"]);
+    expect(exported.map(([name]) => name).sort()).toEqual(["addCoverage", "createCustomer", "issuePolicy"]);
   });
 
   describe.each([

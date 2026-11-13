@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   FEB29_MESSAGE,
   isUuid,
+  parseAddCoverageInput,
   parseCustomerInput,
   parseDateField,
   parseDollarsToCents,
@@ -133,5 +134,41 @@ describe("parseCustomerInput", () => {
     const r = parseCustomerInput({ ...customer, email: "nope", phone: "abc", country: "CAN", legalName: "x".repeat(201) });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(["country", "email", "legalName", "phone"]);
+  });
+});
+
+describe("parseAddCoverageInput", () => {
+  const ok = { name: "  Liquor Liability ", limit: "$73,000", rateBps: "100", effectiveDate: "2026-03-01", transactionDate: "2026-11-13" };
+
+  it("parses to integer cents and a trimmed name", () => {
+    expect(parseAddCoverageInput(ok)).toEqual({
+      ok: true,
+      value: { name: "Liquor Liability", limitCents: 7_300_000, rateBps: 100, effectiveDate: "2026-03-01", transactionDate: "2026-11-13" },
+    });
+  });
+
+  it.each([
+    ["name", { name: "   " }],
+    ["name", { name: "x".repeat(101) }],
+    ["limit", { limit: "0" }],
+    ["limit", { limit: "999.99" }],
+    ["limit", { limit: "73000.001" }],
+    ["limit", { limit: "-73000" }],
+    ["limit", { limit: "100,000,000.01" }],
+    ["rateBps", { rateBps: "0" }],
+    ["rateBps", { rateBps: "10001" }],
+    ["rateBps", { rateBps: "1.5" }],
+    ["effectiveDate", { effectiveDate: "2026-02-30" }],
+    ["effectiveDate", { effectiveDate: "" }],
+    ["transactionDate", { transactionDate: "13/11/2026" }],
+  ])("rejects a bad %s: %j", (field, over) => {
+    const r = parseAddCoverageInput({ ...ok, ...over });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(Object.keys(r.errors)).toEqual([field]);
+  });
+
+  it("accepts the rate bounds 1 and 10000 and the limit bounds", () => {
+    expect(parseAddCoverageInput({ ...ok, rateBps: "1", limit: "1,000" }).ok).toBe(true);
+    expect(parseAddCoverageInput({ ...ok, rateBps: "10000", limit: "100,000,000" }).ok).toBe(true);
   });
 });

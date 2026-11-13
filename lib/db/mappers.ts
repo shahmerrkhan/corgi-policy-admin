@@ -39,6 +39,8 @@ export function entryFromRow(row: LedgerEntryRow): LedgerEntry {
         premiumCents: need(row.premiumCents, "premium_cents", row),
         rebookOf: row.rebookOf,
         coverageLineId: row.coverageLineId,
+        daysInEffect: row.daysInEffect,
+        daysInTerm: row.daysInTerm,
       };
     case "REVERSAL":
       return { ...base, type: "REVERSAL", reversesEntryId: need(row.reversesEntryId, "reverses_entry_id", row) };
@@ -80,6 +82,8 @@ export function entryToRow(entry: LedgerEntry, ctx: EntryContext): NewLedgerEntr
     amountCents: entry.amountCents,
     effectiveDate: null,
     premiumCents: null,
+    daysInEffect: null,
+    daysInTerm: null,
     rebookOf: null,
     coverageLineId: null,
     reversesEntryId: null,
@@ -95,6 +99,8 @@ export function entryToRow(entry: LedgerEntry, ctx: EntryContext): NewLedgerEntr
         premiumCents: entry.premiumCents,
         rebookOf: entry.rebookOf,
         coverageLineId: entry.coverageLineId,
+        daysInEffect: entry.daysInEffect,
+        daysInTerm: entry.daysInTerm,
       };
     case "REVERSAL":
       return { ...row, reversesEntryId: entry.reversesEntryId };

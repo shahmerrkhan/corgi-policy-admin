@@ -2,7 +2,7 @@
 // copies its amount negated (never recomputed), and a new CHARGE is computed at the
 // corrected date. Freed cash is re-allocated FIFO.
 
-import { assertIsoDate, assertTerm, isDateInTerm, type IsoDate, type Term } from "./dates";
+import { assertIsoDate, assertTerm, daysBetween, isDateInTerm, type IsoDate, type Term } from "./dates";
 import { DomainError, fail, ok, type Result } from "./errors";
 import { allocateFifo } from "./allocation";
 import { chargeNetOpen, findCharge, isReversed, latestInChain, nextSeq } from "./ledger";
@@ -85,6 +85,8 @@ export function planCorrection(input: PlanCorrectionInput): Result<PlanCorrectio
     premiumCents: charge.premiumCents,
     rebookOf: charge.id,
     coverageLineId: charge.coverageLineId,
+    daysInEffect: daysBetween(newEffectiveDate, term.end),
+    daysInTerm: term.days,
   };
 
   const releases =

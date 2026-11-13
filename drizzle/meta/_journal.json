@@ -29,6 +29,13 @@
       "when": 1794545539201,
       "tag": "0003_stripe_events_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794588148458,
+      "tag": "0004_coverage_days",
+      "breakpoints": true
     }
   ]
 }

@@ -75,6 +75,24 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
   transaction date, and one POLICY_ISSUED event. No payment, allocation or coverage line.
 - A Feb 29 term start is rejected with a clear message.
 
+## Adding coverage
+- The broker adds a named coverage line to an active policy they own: name, limit, rate (bps),
+  effective date and transaction date. The policyholder cannot add coverage.
+- Name is required, at most 100 characters, stored trimmed, and unique on the policy ignoring
+  case and surrounding spaces.
+- Limit uses the issue rule: dollars, $1,000 to $100,000,000. Rate is a whole number of bps from
+  1 to 10000, per term, and defaults to the policy rate.
+- Effective date must be in [term start, term end): the term start is allowed (full premium),
+  the term end or later is rejected. Backdating is allowed; a warning shows when the effective
+  date is more than 30 days before the transaction date.
+- The transaction date defaults to today in Toronto and is the charge's posting date.
+- Charge = round_half_up(round_half_up(limit x rate_bps / 10000) x days_in_effect / days_in_term).
+  Example: $73,000 at 100 bps = $730.00; effective 2026-03-01 in the 2026-01-01 term = 306/365
+  = $612.00. Effective on the last day of the term = 1/365 = $2.00.
+- Confirming writes one coverage line, one CHARGE (storing the annual premium, effective date,
+  days in effect and days in term) and one COVERAGE_ADDED event, and applies any unapplied cash
+  FIFO. Confirming twice writes once.
+
 ## Customers and logins
 - A customer profile has six parts: legal name, contact name, email (unique, stored lowercase),
   phone, address (line 1, optional line 2, city, province/state, postal code, two-letter country,

@@ -27,6 +27,8 @@ export function charge(over: Partial<ChargeEntry> = {}): ChargeEntry {
     premiumCents: 73_000,
     rebookOf: null,
     coverageLineId: null,
+    daysInEffect: 365,
+    daysInTerm: 365,
     ...over,
   };
 }
@@ -36,7 +38,7 @@ export const correctedEntries: LedgerEntry[] = [
   charge(),
   { id: "p1", type: "PAYMENT", date: "2026-01-10", seq: 2, amountCents: -50_000, paymentId: "pay-1" },
   { id: "r1", type: "REVERSAL", date: "2026-02-01", seq: 3, amountCents: -73_000, reversesEntryId: "c1" },
-  charge({ id: "c2", date: "2026-02-01", seq: 4, amountCents: 40_000, effectiveDate: "2026-06-15", rebookOf: "c1" }),
+  charge({ id: "c2", date: "2026-02-01", seq: 4, amountCents: 40_000, effectiveDate: "2026-06-15", rebookOf: "c1", daysInEffect: 200 }),
 ];
 
 export function statementOf(entries: LedgerEntry[], over: Partial<StatementInput> = {}) {

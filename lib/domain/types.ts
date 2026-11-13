@@ -23,6 +23,10 @@ export interface ChargeEntry extends EntryBase {
   /** The reversed charge this one re-books, or null for an original charge. */
   rebookOf: string | null;
   coverageLineId: string | null;
+  /** Days from effectiveDate to term end (end excluded); null only on rows stored before step 8. */
+  daysInEffect: number | null;
+  /** Actual days in the term (365 or 366); null only on rows stored before step 8. */
+  daysInTerm: number | null;
 }
 
 export interface ReversalEntry extends EntryBase {

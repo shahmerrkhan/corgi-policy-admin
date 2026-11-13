@@ -18,7 +18,9 @@ export type BusinessCode =
   | "INVALID_TERM_START"
   | "CANCEL_DATE_OUTSIDE_TERM"
   | "EFFECTIVE_DATE_OUTSIDE_TERM"
-  | "PAYMENT_NOT_SUCCEEDED";
+  | "PAYMENT_NOT_SUCCEEDED"
+  | "INVALID_COVERAGE_NAME"
+  | "DUPLICATE_COVERAGE_NAME";
 
 export type Failure = {
   ok: false;

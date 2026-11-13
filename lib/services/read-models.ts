@@ -105,3 +105,17 @@ export async function listPoliciesForCustomer(customerId: string, r?: Reader): P
     .where(eq(policies.customerId, customerId))
     .orderBy(desc(policies.policyNumber));
 }
+
+/** One of the broker's own policies (header fields), or null if it is not theirs. */
+export async function getPolicySummaryForBroker(
+  brokerId: string,
+  policyId: string,
+  r?: Reader,
+): Promise<PolicyListItem | null> {
+  const rows = await reader(r)
+    .select(policyListColumns)
+    .from(policies)
+    .innerJoin(customers, eq(customers.id, policies.customerId))
+    .where(and(eq(policies.id, policyId), eq(policies.brokerId, brokerId)));
+  return rows[0] ?? null;
+}

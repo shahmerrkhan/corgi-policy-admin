@@ -161,3 +161,60 @@ describe("PolicyDetail", () => {
     expect(order).toEqual(["Balance due$730.00", "Statement", "Timeline"]);
   });
 });
+
+describe("Added coverage (step 8)", () => {
+  // $730 policy charge paid in full, then Liquor Liability $73,000 at 100 bps effective
+  // 2026-03-01: 306 of 365 days = $612.00.
+  const coverage = charge({
+    id: "c-liquor",
+    date: "2026-11-13",
+    seq: 3,
+    amountCents: 61_200,
+    effectiveDate: "2026-03-01",
+    coverageLineId: "line-liquor",
+    daysInEffect: 306,
+  });
+  const statement = statementOf([...correctedEntries.slice(0, 2), coverage], {
+    entryRows: [
+      { entry: correctedEntries[0]!, eventId: "ev-issue" },
+      { entry: correctedEntries[1]!, eventId: "ev-pay" },
+      { entry: coverage, eventId: "ev-cov" },
+    ],
+    eventRows: [
+      { id: "ev-cov", type: "COVERAGE_ADDED", transactionDate: "2026-11-13", actorRole: "broker", actorUserId: "user_broker", payload: {} },
+      { id: "ev-pay", type: "PAYMENT_RECORDED", transactionDate: "2026-01-10", actorRole: "stripe", actorUserId: null, payload: {} },
+      { id: "ev-issue", type: "POLICY_ISSUED", transactionDate: "2026-01-01", actorRole: "broker", actorUserId: "user_broker", payload: {} },
+    ],
+    lineRows: [{ id: "line-liquor", name: "Liquor Liability", limitCents: 7_300_000, rateBps: 100 }],
+    actorNames: [{ role: "broker", clerkUserId: "user_broker", name: "Harbourline Insurance Brokers" }],
+  });
+
+  it("shows the coverage charge with its own limit, days and the $612.00 proration", () => {
+    const { container } = render(<LedgerTable rows={statement.rows} />);
+    const row = container.querySelector<HTMLElement>("#entry-c-liquor")!;
+    expect(money(row)).toEqual(["$612.00", "$842.00"]);
+    const toggle = within(row).getByRole("button", { name: /Premium, Liquor Liability/ });
+    fireEvent.click(toggle);
+    const calc = document.querySelector<HTMLElement>('[data-slot="charge-calculation"]')!;
+    expect(calc.textContent).toContain("Limit (Liquor Liability)");
+    expect(calc.textContent).toContain("$73,000.00 × 100 ÷ 10,000 = $730.00 (exact)");
+    expect(calc.textContent).toContain("$730.00 × 306 ÷ 365 = $612.00 (exact)");
+    expect(within(calc).queryByRole("status")).toBeNull();
+  });
+
+  it("raises the balance due by the charge and lists Coverage added in the timeline", () => {
+    expect(statement.balance).toEqual({ kind: "due", cents: 23_000 + 61_200 });
+    const { container } = render(<PolicyTimeline events={statement.events} />);
+    const first = container.querySelector("li")!;
+    expect(first.dataset.eventType).toBe("COVERAGE_ADDED");
+    expect(first.textContent).toContain("Coverage added");
+    expect(first.textContent).toContain("by Harbourline Insurance Brokers (Broker)");
+    expect(within(first).getByRole("link", { name: "Ledger entry #3" }).getAttribute("href")).toBe("#entry-c-liquor");
+  });
+
+  it("is read-only for the policyholder: no actions unless the page passes them", () => {
+    render(<PolicyDetail statement={statement} />);
+    expect(screen.queryByRole("link", { name: "Add coverage" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
+  });
+});

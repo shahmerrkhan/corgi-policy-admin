@@ -22,6 +22,8 @@ function charge(over: Partial<ChargeEntry> = {}): ChargeEntry {
     premiumCents: 73_000,
     rebookOf: null,
     coverageLineId: null,
+    daysInEffect: 365,
+    daysInTerm: 365,
     ...over,
   };
 }

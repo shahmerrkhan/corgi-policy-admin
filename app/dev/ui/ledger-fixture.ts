@@ -2,6 +2,7 @@
 // correction (reversal + rebook). Amounts come from lib/domain, never typed in.
 import {
   chargeForEffectiveDate,
+  daysBetween,
   explainCharge,
   premiumCents,
   runningBalances,
@@ -19,11 +20,13 @@ const premium = premiumCents(limitCents, rateBps);
 const charge: ChargeEntry = {
   id: "dev-1", type: "CHARGE", date: "2026-02-22", seq: 1, amountCents: premium,
   effectiveDate: "2026-02-22", premiumCents: premium, rebookOf: null, coverageLineId: null,
+  daysInEffect: 365, daysInTerm: 365,
 };
 const rebook: ChargeEntry = {
   id: "dev-4", type: "CHARGE", date: "2026-03-15", seq: 4,
   amountCents: chargeForEffectiveDate(term, premium, "2026-08-01"),
   effectiveDate: "2026-08-01", premiumCents: premium, rebookOf: "dev-1", coverageLineId: null,
+  daysInEffect: daysBetween("2026-08-01", term.end), daysInTerm: term.days,
 };
 const entries: LedgerEntry[] = [
   charge,

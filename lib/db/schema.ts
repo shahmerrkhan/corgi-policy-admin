@@ -166,6 +166,7 @@ export const coverageLines = pgTable(
   },
   (t) => [
     index("coverage_lines_policy_idx").on(t.policyId),
+    uniqueIndex("coverage_lines_policy_name_unique").on(t.policyId, sql`lower(btrim(${t.name}))`),
     check("coverage_lines_name_present", sql`btrim(${t.name}) <> ''`),
     check("coverage_lines_limit_positive", sql`${t.limitCents} > 0`),
     check("coverage_lines_rate_positive", sql`${t.rateBps} > 0`),
@@ -221,6 +222,10 @@ export const ledgerEntries = pgTable(
     amountCents: cents("amount_cents").notNull(),
     effectiveDate: isoDate("effective_date"),
     premiumCents: cents("premium_cents"),
+    /** CHARGE only, set on every charge since step 8: days from effective_date to term end. */
+    daysInEffect: integer("days_in_effect"),
+    /** CHARGE only, set on every charge since step 8: actual days in the term. */
+    daysInTerm: integer("days_in_term"),
     rebookOf: uuid("rebook_of").references((): AnyPgColumn => ledgerEntries.id, fk),
     coverageLineId: uuid("coverage_line_id").references(() => coverageLines.id, fk),
     reversesEntryId: uuid("reverses_entry_id")
@@ -247,6 +252,17 @@ export const ledgerEntries = pgTable(
         AND ${t.premiumCents} IS NOT NULL AND ${t.premiumCents} > 0
         AND ${t.reversesEntryId} IS NULL AND ${t.chargeId} IS NULL
         AND ${t.paymentId} IS NULL AND ${t.stripeRefundId} IS NULL)`,
+    ),
+    check(
+      "ledger_entries_days_shape",
+      sql`(${t.daysInEffect} IS NULL AND ${t.daysInTerm} IS NULL)
+        OR (${t.type} = 'CHARGE' AND ${t.daysInTerm} IN (365, 366)
+            AND ${t.daysInEffect} >= 1 AND ${t.daysInEffect} <= ${t.daysInTerm})`,
+    ),
+    check(
+      "ledger_entries_charge_prorated_round_half_up",
+      sql`${t.daysInEffect} IS NULL
+        OR ${t.amountCents} = (2 * ${t.premiumCents} * ${t.daysInEffect} + ${t.daysInTerm}) / (2 * ${t.daysInTerm})`,
     ),
     check(
       "ledger_entries_reversal_shape",

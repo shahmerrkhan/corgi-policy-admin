@@ -1,6 +1,6 @@
 // Untrusted form / query input -> typed values. Integer math only, never floats.
 // Field errors are for the user; nothing here throws on bad input.
-import { assertIsoDate, makeTerm } from "@/lib/domain";
+import { assertIsoDate, COVERAGE_NAME_MAX, makeTerm, normalizeCoverageName } from "@/lib/domain";
 
 export const LIMIT_MIN_CENTS = 100_000; // $1,000.00
 export const LIMIT_MAX_CENTS = 10_000_000_000; // $100,000,000.00
@@ -158,4 +158,53 @@ export function parseCustomerInput(raw: Raw): Parsed<CustomerInput, CustomerFiel
       businessDescription: v.businessDescription ?? "",
     },
   };
+}
+
+export type AddCoverageInput = {
+  name: string;
+  limitCents: number;
+  rateBps: number;
+  effectiveDate: string;
+  transactionDate: string;
+};
+
+export type AddCoverageField = "name" | "limit" | "rateBps" | "effectiveDate" | "transactionDate";
+
+/**
+ * Add-coverage form fields. Whether the effective date is inside the term and whether the
+ * name is unique need the policy, so the domain (planAddCoverage) checks those.
+ */
+export function parseAddCoverageInput(raw: Raw): Parsed<AddCoverageInput, AddCoverageField> {
+  const errors: FieldErrors<AddCoverageField> = {};
+
+  const name = normalizeCoverageName(str(raw, "name"));
+  if (!name) errors.name = "Coverage name is required.";
+  else if (name.length > COVERAGE_NAME_MAX) errors.name = `Coverage name must be at most ${COVERAGE_NAME_MAX} characters.`;
+
+  const limitCents = parseDollarsToCents(str(raw, "limit"));
+  if (limitCents === null) {
+    errors.limit = "Enter the limit in dollars, for example 1,000,000 or 1000000.00.";
+  } else if (limitCents < LIMIT_MIN_CENTS || limitCents > LIMIT_MAX_CENTS) {
+    errors.limit = "Limit must be between $1,000 and $100,000,000.";
+  }
+
+  const rateBps = parseRateBps(str(raw, "rateBps"));
+  if (rateBps === null) errors.rateBps = "Rate must be a whole number of basis points from 1 to 10000.";
+
+  const effectiveDate = parseDateField(str(raw, "effectiveDate"));
+  if (!effectiveDate) errors.effectiveDate = "Enter the effective date as a real date (YYYY-MM-DD).";
+
+  const transactionDate = parseDateField(str(raw, "transactionDate"));
+  if (!transactionDate) errors.transactionDate = "Enter the transaction date as a real date (YYYY-MM-DD).";
+
+  if (
+    Object.keys(errors).length > 0 ||
+    limitCents === null ||
+    rateBps === null ||
+    !effectiveDate ||
+    !transactionDate
+  ) {
+    return { ok: false, errors };
+  }
+  return { ok: true, value: { name, limitCents, rateBps, effectiveDate, transactionDate } };
 }

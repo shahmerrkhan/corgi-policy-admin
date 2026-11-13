@@ -40,6 +40,8 @@ export function charge(
     premiumCents: over.amountCents,
     rebookOf: null,
     coverageLineId: null,
+    daysInEffect: null,
+    daysInTerm: null,
     ...over,
   };
 }

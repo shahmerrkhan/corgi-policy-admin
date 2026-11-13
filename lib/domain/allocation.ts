@@ -1,6 +1,6 @@
 // FIFO allocation: oldest payment's unapplied cash first, to the oldest open charge first.
 
-import { assertIsoDate, assertTerm, isDateInTerm, type IsoDate, type Term } from "./dates";
+import { assertIsoDate, assertTerm, daysBetween, isDateInTerm, type IsoDate, type Term } from "./dates";
 import { DomainError, fail, ok, type Result } from "./errors";
 import {
   byOldest,
@@ -157,6 +157,8 @@ export function planCharge(input: PlanChargeInput): Result<PlanChargeValue> {
     premiumCents: input.premiumCents,
     rebookOf: null,
     coverageLineId: input.coverageLineId,
+    daysInEffect: daysBetween(effectiveDate, term.end),
+    daysInTerm: term.days,
   };
   const fifo = allocateFifo({
     entries: [...input.entries, entry],

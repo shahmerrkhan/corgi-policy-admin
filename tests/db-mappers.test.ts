@@ -29,6 +29,8 @@ const entries: LedgerEntry[] = [
     premiumCents: 73000,
     rebookOf: null,
     coverageLineId: null,
+    daysInEffect: null,
+    daysInTerm: null,
   },
   {
     id: "c2",
@@ -40,6 +42,8 @@ const entries: LedgerEntry[] = [
     premiumCents: 73000,
     rebookOf: "c1",
     coverageLineId: "line-1",
+    daysInEffect: 306,
+    daysInTerm: 365,
   },
   { id: "r1", type: "REVERSAL", date: "2026-02-01", seq: 2, amountCents: -73000, reversesEntryId: "c1" },
   { id: "cr1", type: "CREDIT", date: "2026-06-01", seq: 4, amountCents: -30000, chargeId: "c2", effectiveDate: "2026-06-01" },
