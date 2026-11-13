@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# clerk keyless mode (disabled in next.config.ts; ignored just in case)
+/.clerk/

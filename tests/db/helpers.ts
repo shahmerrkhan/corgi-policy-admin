@@ -169,3 +169,25 @@ export async function insertFixture(tx: Tx) {
   });
   return ids;
 }
+
+/** A broker and one of their customers, with unique emails. */
+export async function insertBrokerWithCustomer(tx: Tx) {
+  const brokerId = randomUUID();
+  const customerId = randomUUID();
+  const tag = brokerId.slice(0, 8);
+  await tx.insert(brokers).values({ id: brokerId, name: `Broker ${tag}`, email: `broker-${tag}@test.invalid` });
+  await tx.insert(customers).values({
+    id: customerId,
+    brokerId,
+    legalName: `Customer ${tag}`,
+    contactName: "Test Contact",
+    email: `customer-${tag}@test.invalid`,
+    phone: "+1 000 000 0000",
+    addressLine1: "1 Test St",
+    city: "Toronto",
+    region: "ON",
+    postalCode: "M5H 1A1",
+    businessDescription: "Test",
+  });
+  return { brokerId, customerId };
+}

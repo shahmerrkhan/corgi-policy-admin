@@ -64,3 +64,21 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
 ## Ledger sign convention
 - The sum of entries is the balance: CHARGE +, REVERSAL -, CREDIT -, PAYMENT -, REFUND +.
   A negative balance is credit on account.
+
+## Issuing a policy
+- The broker enters customer, term start, transaction date, limit (dollars) and rate (bps).
+- Limit is $1,000 to $100,000,000, whole dollars or with cents. Rate is a whole number of bps
+  from 1 to 10000, per 12-month term.
+- The transaction date defaults to today in Toronto and has no limit relative to the term start
+  (the demo stages backdated and future-dated work).
+- Issuing posts one CHARGE effective on the term start for the full-term premium, dated the
+  transaction date, and one POLICY_ISSUED event. No payment, allocation or coverage line.
+- A Feb 29 term start is rejected with a clear message.
+
+## Customers and logins
+- A customer profile has six parts: legal name, contact name, email (unique, stored lowercase),
+  phone, address (line 1, optional line 2, city, province/state, postal code, two-letter country,
+  default CA) and business description.
+- Customers belong to the broker who created them; a broker sees only their own customers and
+  policies. A policyholder sees only their own policies.
+- Only the seeded broker and seeded customer have logins, linked by `npm run db:link`.
