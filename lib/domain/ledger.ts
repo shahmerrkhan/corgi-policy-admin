@@ -135,6 +135,17 @@ export function balanceCents(entries: readonly LedgerEntry[]): number {
   return sum;
 }
 
+/** Entries oldest first (date, then seq), each with the balance after it. The last balance equals balanceCents. */
+export function runningBalances<E extends LedgerEntry>(
+  entries: readonly E[],
+): { entry: E; balanceCents: number }[] {
+  let balance = 0;
+  return [...entries].sort(byOldest).map((entry) => {
+    balance += entry.amountCents;
+    return { entry, balanceCents: balance };
+  });
+}
+
 /** Next seq after every existing entry. */
 export function nextSeq(entries: readonly LedgerEntry[]): number {
   let max = 0;

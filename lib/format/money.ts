@@ -27,3 +27,9 @@ export function formatBalance(cents: number): string {
   assertCents(cents);
   return cents < 0 ? `(${formatAbs(cents)}) CR` : `$${formatAbs(cents)}`;
 }
+
+/** Whole number with thousands separators: 7300000 -> "7,300,000". Throws on non-integers. */
+export function formatInteger(n: number): string {
+  assertCents(n);
+  return `${n < 0 ? "-" : ""}${String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+}

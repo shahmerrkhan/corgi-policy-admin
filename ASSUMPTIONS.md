@@ -82,3 +82,10 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
 - Customers belong to the broker who created them; a broker sees only their own customers and
   policies. A policyholder sees only their own policies.
 - Only the seeded broker and seeded customer have logins, linked by `npm run db:link`.
+
+## Statement and timeline
+- The statement lists every ledger entry oldest first (posting date, then seq) with the balance after it. Reversed entries stay on the statement, struck through.
+- The balance at the top is "Balance due" when the sum of entries is zero or more and "Credit" (shown as a positive amount) when it is negative.
+- Descriptions: original charge "Premium, policy issued"; rebooked charge "Premium, corrected effective date"; coverage-line charge "Premium, <line name>"; reversal "Reversal of #seq"; credit "Return premium, cancellation"; payment "Payment"; refund "Refund".
+- Timeline labels: Policy issued, Coverage added, Effective date corrected, Policy cancelled, Payment recorded, Refund issued. Newest first.
+- A charge's calculation shows the limit and rate (from its coverage line, or the policy), the premium step, term days, days in effect and the proration step, each with its exact remainder and rounding direction.

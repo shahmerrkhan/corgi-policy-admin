@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Field } from "@/components/field";
 import { InlineWarning } from "@/components/inline-warning";
-import { MoneyCell } from "@/components/money-cell";
+import { LedgerTable } from "@/components/ledger-table";
 import { MonoId } from "@/components/mono-id";
 import { StatusBadge } from "@/components/status-badge";
 import { Tag } from "@/components/tag";
@@ -18,15 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { DEV_LEDGER_ROWS } from "./ledger-fixture";
 
 // Dev-only primitive gallery. 404 in production builds; never linked from the app.
 export const metadata: Metadata = {
@@ -34,12 +27,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const ROWS = [
-  { id: "000123", date: "2026-02-22", type: "Charge", cents: 123456, balance: 123456, tag: null },
-  { id: "000124", date: "2026-03-01", type: "Payment", cents: -100000, balance: 23456, tag: null },
-  { id: "000125", date: "2026-03-15", type: "Reversal", cents: -123456, balance: -100000, tag: "Correction" },
-  { id: "000126", date: "2026-03-15", type: "Charge", cents: 61200, balance: -38800, tag: "Correction" },
-] as const;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -123,42 +110,8 @@ export default function DevUiPage() {
         </div>
       </Section>
 
-      <Section title="Table">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Entry</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="text-right">Balance</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ROWS.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell>
-                  <MonoId prefix="LE-" value={r.id} />
-                </TableCell>
-                <TableCell>
-                  <DateCell date={r.date} />
-                </TableCell>
-                <TableCell>
-                  <span className="inline-flex items-center gap-2">
-                    {r.type}
-                    {r.tag ? <Tag>{r.tag}</Tag> : null}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <MoneyCell cents={r.cents} />
-                </TableCell>
-                <TableCell>
-                  <MoneyCell cents={r.balance} variant="balance" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <Section title="Ledger table">
+        <LedgerTable rows={DEV_LEDGER_ROWS} />
       </Section>
 
       <Section title="Messages">

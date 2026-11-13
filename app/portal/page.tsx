@@ -16,7 +16,7 @@ export default async function PortalPage() {
       {policies.length === 0 ? (
         <EmptyState title="No policies yet" description="Policies your broker issues appear here." />
       ) : (
-        <PoliciesTable policies={policies} showCustomer={false} />
+        <PoliciesTable policies={policies} hrefBase="/portal/policies" showCustomer={false} />
       )}
     </>
   );

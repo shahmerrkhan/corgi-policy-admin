@@ -3,11 +3,9 @@
 // which always comes from the session, never from the client.
 import { and, asc, desc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import type { LedgerEntry } from "@/lib/domain";
-import { entryFromRow } from "@/lib/db/mappers";
 import { getDb } from "@/lib/db/read";
 import * as schema from "@/lib/db/schema";
-import { brokers, customers, ledgerEntries, policies, policyEvents } from "@/lib/db/schema";
+import { brokers, customers, policies } from "@/lib/db/schema";
 
 /** neon-http database or a transaction: anything that can run a select. */
 export type Reader = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -77,7 +75,7 @@ export type PolicyListItem = {
   status: "active" | "cancelled";
 };
 
-const policyListColumns = {
+export const policyListColumns = {
   id: policies.id,
   policyNumber: policies.policyNumber,
   customerId: policies.customerId,
@@ -106,45 +104,4 @@ export async function listPoliciesForCustomer(customerId: string, r?: Reader): P
     .innerJoin(customers, eq(customers.id, policies.customerId))
     .where(eq(policies.customerId, customerId))
     .orderBy(desc(policies.policyNumber));
-}
-
-export type PolicyEventItem = {
-  id: string;
-  type: string;
-  transactionDate: string;
-  actorRole: string;
-};
-
-export type PolicyDetail = {
-  policy: PolicyListItem;
-  events: PolicyEventItem[];
-  entries: LedgerEntry[];
-};
-
-/** A broker's own policy with its events (by position) and ledger entries (by seq), or null. */
-export async function getPolicyForBroker(brokerId: string, policyId: string, r?: Reader): Promise<PolicyDetail | null> {
-  const db = reader(r);
-  const rows = await db
-    .select(policyListColumns)
-    .from(policies)
-    .innerJoin(customers, eq(customers.id, policies.customerId))
-    .where(and(eq(policies.id, policyId), eq(policies.brokerId, brokerId)));
-  const policy = rows[0];
-  if (!policy) return null;
-  const events = await db
-    .select({
-      id: policyEvents.id,
-      type: policyEvents.type,
-      transactionDate: policyEvents.transactionDate,
-      actorRole: policyEvents.actorRole,
-    })
-    .from(policyEvents)
-    .where(eq(policyEvents.policyId, policyId))
-    .orderBy(asc(policyEvents.position));
-  const entryRows = await db
-    .select()
-    .from(ledgerEntries)
-    .where(eq(ledgerEntries.policyId, policyId))
-    .orderBy(asc(ledgerEntries.seq));
-  return { policy, events, entries: entryRows.map(entryFromRow) };
 }

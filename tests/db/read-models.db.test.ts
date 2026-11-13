@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import { issuePolicyCommand } from "@/lib/services/issue-policy";
 import {
   getCustomerForBroker,
-  getPolicyForBroker,
   listCustomersForBroker,
   listPoliciesForBroker,
   listPoliciesForCustomer,
   type Reader,
 } from "@/lib/services/read-models";
+import { getStatementForBroker } from "@/lib/services/statement";
 import { insertBrokerWithCustomer, rolledBack } from "./helpers";
 
 describe("read models", () => {
@@ -34,13 +34,13 @@ describe("read models", () => {
       expect((await listPoliciesForCustomer(b.customerId, r)).map((p) => p.id)).toEqual([pb.value.policyId]);
 
       expect(await getCustomerForBroker(a.brokerId, b.customerId, r)).toBeNull();
-      expect(await getPolicyForBroker(a.brokerId, pb.value.policyId, r)).toBeNull();
+      expect(await getStatementForBroker(a.brokerId, pb.value.policyId, r)).toBeNull();
 
-      const detail = await getPolicyForBroker(a.brokerId, pa.value.policyId, r);
+      const detail = await getStatementForBroker(a.brokerId, pa.value.policyId, r);
       expect(detail?.policy).toMatchObject({ id: pa.value.policyId, premiumCents: 1_000_000, status: "active" });
       expect(detail?.events.map((e) => e.type)).toEqual(["POLICY_ISSUED"]);
-      expect(detail?.entries).toEqual([
-        expect.objectContaining({ type: "CHARGE", seq: 1, amountCents: 1_000_000, effectiveDate: "2026-01-01" }),
+      expect(detail?.rows).toEqual([
+        expect.objectContaining({ type: "CHARGE", seq: 1, amountCents: 1_000_000, balanceCents: 1_000_000 }),
       ]);
     });
   });
