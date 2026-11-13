@@ -17,10 +17,11 @@ import {
   type PlanAddCoverageValue,
   type Term,
 } from "@/lib/domain";
-import { allocationFromRow, allocationToRow, entryFromRow, entryToRow, paymentFromRow, termFromPolicy } from "@/lib/db/mappers";
-import { coverageLines, ledgerEntries, paymentAllocations, payments, policies, policyEvents } from "@/lib/db/schema";
+import { allocationToRow, entryToRow, termFromPolicy } from "@/lib/db/mappers";
+import { coverageLines, ledgerEntries, paymentAllocations, policies, policyEvents } from "@/lib/db/schema";
 import type { Tx } from "@/lib/db/with-tx";
 import type { AddCoverageField, AddCoverageInput } from "./inputs";
+import { loadPolicyLedger, type PolicyLedger } from "./ledger-state";
 import type { Reader } from "./read-models";
 import { getDb } from "@/lib/db/read";
 import type { ServiceFailure } from "./result";
@@ -43,30 +44,18 @@ function rejection(code: string, message: string): AddCoverageFailure {
 const OUTSIDE_TERM_MESSAGE = (term: Term) =>
   `Effective date must be on or after ${term.start} and before ${term.end} (the term end is excluded).`;
 
-async function loadState(db: Reader, policyId: string) {
-  const [lineRows, entryRows, allocationRows, paymentRows] = await Promise.all([
-    db.select({ id: coverageLines.id, name: coverageLines.name }).from(coverageLines).where(eq(coverageLines.policyId, policyId)),
-    db.select().from(ledgerEntries).where(eq(ledgerEntries.policyId, policyId)),
-    db.select().from(paymentAllocations).where(eq(paymentAllocations.policyId, policyId)),
-    db.select().from(payments).where(eq(payments.policyId, policyId)),
-  ]);
-  return {
-    existingNames: lineRows.map((l) => l.name),
-    entries: entryRows.map(entryFromRow),
-    allocations: allocationRows.map(allocationFromRow),
-    payments: paymentRows.map(paymentFromRow),
-  };
-}
-
 function plan(
   policy: { termStart: string; termEnd: string; status: "active" | "cancelled" },
-  state: Awaited<ReturnType<typeof loadState>>,
+  state: PolicyLedger,
   input: AddCoverageInput,
   coverageLineId: string,
 ): { term: Term; result: AddCoverageResult<PlanAddCoverageValue> } {
   const term = termFromPolicy(policy);
   const r = planAddCoverage({
-    ...state,
+    existingNames: state.existingNames,
+    entries: state.entries,
+    allocations: state.allocations,
+    payments: state.payments,
     term,
     name: input.name,
     coverageLineId,
@@ -102,7 +91,7 @@ export async function previewAddCoverage(
     .from(policies)
     .where(and(eq(policies.id, policyId), eq(policies.brokerId, brokerId)));
   if (!policy) return rejection("POLICY_NOT_FOUND", "Policy not found.");
-  const { term, result } = plan(policy, await loadState(db, policyId), input, "preview");
+  const { term, result } = plan(policy, await loadPolicyLedger(db, policyId), input, "preview");
   if (!result.ok) return result;
   const [charge] = result.value.entries;
   return {
@@ -158,7 +147,7 @@ export async function addCoverageCommand(
   }
 
   // 3. Plan from the locked state.
-  const state = await loadState(tx as unknown as Reader, policyId);
+  const state = await loadPolicyLedger(tx as unknown as Reader, policyId);
   const { result } = plan(policy, state, input, requestId);
   if (!result.ok) return result;
   const p = result.value;

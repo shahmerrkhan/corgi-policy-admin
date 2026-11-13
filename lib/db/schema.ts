@@ -36,7 +36,7 @@ export const entryType = pgEnum("entry_type", ["CHARGE", "REVERSAL", "CREDIT", "
 export const eventType = pgEnum("event_type", [
   "POLICY_ISSUED",
   "COVERAGE_ADDED",
-  "EFFECTIVE_DATE_CORRECTED",
+  "COVERAGE_DATE_CORRECTED",
   "POLICY_CANCELLED",
   "PAYMENT_RECORDED",
   "REFUND_ISSUED",
@@ -144,7 +144,16 @@ export const policyEvents = pgTable(
     payload: jsonb("payload").notNull().default({}),
     createdAt: createdAt(),
   },
-  (t) => [unique("policy_events_position_unique").on(t.position), index("policy_events_policy_idx").on(t.policyId)],
+  (t) => [
+    unique("policy_events_position_unique").on(t.position),
+    index("policy_events_policy_idx").on(t.policyId),
+    // The domain rule (trim(), 1..500 UTF-16 units) is stricter and is the binding one.
+    check(
+      "policy_events_correction_reason",
+      sql`${t.type} <> 'COVERAGE_DATE_CORRECTED'
+        OR (btrim(${t.payload}->>'reason') <> '' AND char_length(${t.payload}->>'reason') <= 500)`,
+    ),
+  ],
 );
 
 /** An added named coverage with its own limit and rate. Append-only. */
@@ -245,6 +254,15 @@ export const ledgerEntries = pgTable(
       .on(t.stripeRefundId)
       .where(sql`${t.stripeRefundId} IS NOT NULL`),
     index("ledger_entries_charge_idx").on(t.chargeId),
+    // A charge is re-booked at most once, so a correction chain is linear.
+    uniqueIndex("ledger_entries_one_rebook_per_charge")
+      .on(t.rebookOf)
+      .where(sql`${t.rebookOf} IS NOT NULL`),
+    // One original charge per coverage line; with the two rules above, a line has exactly one live charge.
+    uniqueIndex("ledger_entries_one_original_charge_per_line")
+      .on(t.coverageLineId)
+      .where(sql`${t.type} = 'CHARGE' AND ${t.rebookOf} IS NULL AND ${t.coverageLineId} IS NOT NULL`),
+    check("ledger_entries_rebook_has_days", sql`${t.rebookOf} IS NULL OR ${t.daysInEffect} IS NOT NULL`),
     check("ledger_entries_seq_positive", sql`${t.seq} > 0`),
     check(
       "ledger_entries_charge_shape",

@@ -1,6 +1,6 @@
 // Untrusted form / query input -> typed values. Integer math only, never floats.
 // Field errors are for the user; nothing here throws on bad input.
-import { assertIsoDate, COVERAGE_NAME_MAX, makeTerm, normalizeCoverageName } from "@/lib/domain";
+import { assertIsoDate, CORRECTION_REASON_MAX, COVERAGE_NAME_MAX, makeTerm, normalizeCoverageName } from "@/lib/domain";
 
 export const LIMIT_MIN_CENTS = 100_000; // $1,000.00
 export const LIMIT_MAX_CENTS = 10_000_000_000; // $100,000,000.00
@@ -207,4 +207,29 @@ export function parseAddCoverageInput(raw: Raw): Parsed<AddCoverageInput, AddCov
     return { ok: false, errors };
   }
   return { ok: true, value: { name, limitCents, rateBps, effectiveDate, transactionDate } };
+}
+
+export type CorrectCoverageInput = {
+  newEffectiveDate: string;
+  transactionDate: string;
+  reason: string;
+};
+
+export type CorrectCoverageField = keyof CorrectCoverageInput;
+
+/**
+ * Correct-coverage-date form fields. Term range, same-date and the transaction-date floor
+ * need the ledger, so the domain (planCoverageCorrection) checks those.
+ */
+export function parseCorrectCoverageInput(raw: Raw): Parsed<CorrectCoverageInput, CorrectCoverageField> {
+  const errors: FieldErrors<CorrectCoverageField> = {};
+  const newEffectiveDate = parseDateField(str(raw, "newEffectiveDate"));
+  if (!newEffectiveDate) errors.newEffectiveDate = "Enter the new effective date as a real date (YYYY-MM-DD).";
+  const transactionDate = parseDateField(str(raw, "transactionDate"));
+  if (!transactionDate) errors.transactionDate = "Enter the transaction date as a real date (YYYY-MM-DD).";
+  const reason = str(raw, "reason");
+  if (!reason) errors.reason = "A reason is required.";
+  else if (reason.length > CORRECTION_REASON_MAX) errors.reason = `Reason must be at most ${CORRECTION_REASON_MAX} characters.`;
+  if (Object.keys(errors).length > 0 || !newEffectiveDate || !transactionDate) return { ok: false, errors };
+  return { ok: true, value: { newEffectiveDate, transactionDate, reason } };
 }

@@ -3,6 +3,7 @@ import {
   FEB29_MESSAGE,
   isUuid,
   parseAddCoverageInput,
+  parseCorrectCoverageInput,
   parseCustomerInput,
   parseDateField,
   parseDollarsToCents,
@@ -170,5 +171,31 @@ describe("parseAddCoverageInput", () => {
   it("accepts the rate bounds 1 and 10000 and the limit bounds", () => {
     expect(parseAddCoverageInput({ ...ok, rateBps: "1", limit: "1,000" }).ok).toBe(true);
     expect(parseAddCoverageInput({ ...ok, rateBps: "10000", limit: "100,000,000" }).ok).toBe(true);
+  });
+});
+
+describe("parseCorrectCoverageInput", () => {
+  const ok = { newEffectiveDate: "2026-02-22", transactionDate: "2026-11-13", reason: "  Wrong start date " };
+
+  it("parses dates and a trimmed reason", () => {
+    expect(parseCorrectCoverageInput(ok)).toEqual({
+      ok: true,
+      value: { newEffectiveDate: "2026-02-22", transactionDate: "2026-11-13", reason: "Wrong start date" },
+    });
+  });
+
+  it.each([
+    ["newEffectiveDate", { newEffectiveDate: "2026-02-30" }],
+    ["transactionDate", { transactionDate: "" }],
+    ["reason", { reason: "   " }],
+    ["reason", { reason: "x".repeat(501) }],
+  ])("rejects a bad %s", (field, over) => {
+    const r = parseCorrectCoverageInput({ ...ok, ...over });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(Object.keys(r.errors)).toEqual([field]);
+  });
+
+  it("accepts a 500-character reason", () => {
+    expect(parseCorrectCoverageInput({ ...ok, reason: "x".repeat(500) }).ok).toBe(true);
   });
 });

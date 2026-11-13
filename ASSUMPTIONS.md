@@ -30,6 +30,24 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
   CHARGE_ALREADY_REVERSED and names the latest charge in the chain.
 - The corrected date must be in [term start, term end) and differ from the current date.
 - Corrections are blocked on cancelled policies (v1).
+- In v1 the broker corrects the effective date of an added coverage line (not the policy start).
+  The form takes the new date, a transaction date (default today in Toronto, not before the
+  newest ledger entry on the policy) and a required reason (up to 500 characters). A warning
+  shows when the new date is more than 30 days before the transaction date.
+- A line's current effective date is the effective date of its one live charge; coverage_lines
+  is never updated. A line can be corrected again: each correction reverses the latest charge.
+- Example: $730 line effective 2026-03-01 = $612.00 (306/365), corrected to 2026-02-22 =
+  $626.00 (313/365): reversal -$612.00, new charge $626.00, net +$14.00. If the $612.00 was
+  paid, the reversal releases that cash and FIFO re-allocates it, leaving $14.00 due.
+- Freed cash follows plain FIFO: it pays the oldest open charge by posting date first, which can
+  be another line's charge rather than the corrected one. The balance due is the same.
+- The database enforces one reversal per charge, one rebook per charge, one original charge per
+  line, day counts on every rebook, the round-half-up amount, and a non-blank reason of at most
+  500 characters. The link rules (same policy, reversal = minus the original, rebook keeps the
+  premium and line, day counts match the dates) are enforced in lib/domain and the service, not
+  by a DB trigger (owner decision, step 9).
+- Confirming twice writes one correction; a review page that went stale (another correction
+  landed first) is refused with a link back to the line's correction form.
 
 ## Cancellation (pro rata, no fee)
 - Cancel date must be in [term start, term end). A reason is required. A warning shows when
@@ -104,8 +122,9 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
 ## Statement and timeline
 - The statement lists every ledger entry oldest first (posting date, then seq) with the balance after it. Reversed entries stay on the statement, struck through.
 - The balance at the top is "Balance due" when the sum of entries is zero or more and "Credit" (shown as a positive amount) when it is negative.
-- Descriptions: original charge "Premium, policy issued"; rebooked charge "Premium, corrected effective date"; coverage-line charge "Premium, <line name>"; reversal "Reversal of #seq"; credit "Return premium, cancellation"; payment "Payment"; refund "Refund".
-- Timeline labels: Policy issued, Coverage added, Effective date corrected, Policy cancelled, Payment recorded, Refund issued. Newest first.
+- Descriptions: original charge "Premium, policy issued"; rebooked charge "Premium, corrected effective date"; coverage-line charge "Premium, <line name>"; rebooked coverage-line charge "Premium, <line name> (corrected)"; reversal "Reversal of #seq"; credit "Return premium, cancellation"; payment "Payment"; refund "Refund".
+- Timeline labels: Policy issued, Coverage added, Coverage date corrected (with the line, old and new dates and the reason), Policy cancelled, Payment recorded, Refund issued. Newest first.
+- Each policy page lists its coverage lines with their current effective date; only the broker's page (active policy) has a Correct date link.
 - A charge's calculation shows the limit and rate (from its coverage line, or the policy), the premium step, term days, days in effect and the proration step, each with its exact remainder and rounding direction.
 
 ## Online payments (Stripe Checkout, test mode)

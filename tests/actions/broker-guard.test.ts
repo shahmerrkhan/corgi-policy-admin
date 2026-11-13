@@ -40,6 +40,10 @@ function validForm(): FormData {
     requestId: "00000000-0000-4000-8000-0000000000b1",
     name: "Liquor Liability",
     effectiveDate: "2026-03-01",
+    coverageLineId: "00000000-0000-4000-8000-0000000000c1",
+    expectedChargeId: "00000000-0000-4000-8000-0000000000d1",
+    newEffectiveDate: "2026-02-22",
+    reason: "Wrong start date",
   };
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   return fd;
@@ -51,7 +55,7 @@ describe("actions/broker.ts guard", () => {
   });
 
   it("exports the broker actions (and nothing is skipped)", () => {
-    expect(exported.map(([name]) => name).sort()).toEqual(["addCoverage", "createCustomer", "issuePolicy"]);
+    expect(exported.map(([name]) => name).sort()).toEqual(["addCoverage", "correctCoverageDate", "createCustomer", "issuePolicy"]);
   });
 
   describe.each([

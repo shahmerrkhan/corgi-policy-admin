@@ -24,6 +24,11 @@ export function PolicyTimeline({ events }: { events: TimelineEvent[] }) {
             <span className="text-sm font-medium">{e.label}</span>
             {e.paymentStatus ? <StatusBadge status={e.paymentStatus} /> : null}
           </div>
+          {e.detail ? (
+            <p data-slot="event-detail" className="text-sm break-words">
+              {e.detail}
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
             <span>by {e.actor}</span>
             {e.relatedEntries.map((ref) => (

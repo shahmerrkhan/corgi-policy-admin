@@ -1,4 +1,5 @@
 import { BalanceSummary } from "@/components/balance-summary";
+import { CoverageLines } from "@/components/coverage-lines";
 import { LedgerTable } from "@/components/ledger-table";
 import { PolicyTimeline } from "@/components/policy-timeline";
 import { Tag } from "@/components/tag";
@@ -7,9 +8,19 @@ import type { PolicyStatement } from "@/lib/services/statement-view";
 
 // One policy's header, statement and timeline. Shared by the broker and portal pages;
 // each page loads the statement with its own session-scoped read model. `actions` sits
-// under the balance (the portal's Pay balance button); the broker page passes none.
-export function PolicyDetail({ statement, actions }: { statement: PolicyStatement; actions?: React.ReactNode }) {
-  const { policy, rows, balance, events } = statement;
+// under the balance (the portal's Pay balance button, the broker's Add coverage); correctHref
+// (broker, active policy) adds a Correct date link per coverage line.
+export function PolicyDetail({
+  statement,
+  actions,
+  correctHref,
+}: {
+  statement: PolicyStatement;
+  actions?: React.ReactNode;
+  /** Broker page on an active policy only: link to correct a coverage line's date. */
+  correctHref?: (lineId: string) => string;
+}) {
+  const { policy, rows, balance, events, coverageLines } = statement;
   return (
     <>
       <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -34,6 +45,8 @@ export function PolicyDetail({ statement, actions }: { statement: PolicyStatemen
           {actions}
         </div>
       </header>
+
+      <CoverageLines lines={coverageLines} correctHref={correctHref} />
 
       <section aria-labelledby="statement-heading" className="flex flex-col gap-3">
         <h2 id="statement-heading" className="text-lg font-semibold">

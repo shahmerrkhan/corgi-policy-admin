@@ -22,5 +22,9 @@ export default async function BrokerPolicyPage({ params }: PageProps<"/broker/po
         <Link href={`/broker/policies/${policyId}/coverage/new`}>Add coverage</Link>
       </Button>
     ) : undefined;
-  return <PolicyDetail statement={statement} actions={actions} />;
+  const correctHref =
+    statement.policy.status === "active"
+      ? (lineId: string) => `/broker/policies/${policyId}/coverage/${lineId}/correct`
+      : undefined;
+  return <PolicyDetail statement={statement} actions={actions} correctHref={correctHref} />;
 }

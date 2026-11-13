@@ -5,6 +5,7 @@ import {
   assertTerm,
   daysBetween,
   explainCharge,
+  isReversed,
   runningBalances,
   type ChargeExplanation,
   type EntryType,
@@ -49,6 +50,20 @@ export type TimelineEvent = {
   actor: string;
   relatedEntries: EntryRef[];
   paymentStatus: PaymentStatus | null;
+  /** Extra plain-language detail (a coverage date correction's dates and reason), or null. */
+  detail: string | null;
+};
+
+/** A coverage line with its current effective date: the effective date of its one live charge. */
+export type CoverageLineSummary = {
+  id: string;
+  name: string;
+  limitCents: number;
+  rateBps: number;
+  /** null only if the ledger does not have exactly one live charge for the line (a data problem). */
+  effectiveDate: string | null;
+  liveChargeId: string | null;
+  liveChargeCents: number | null;
 };
 
 export type PolicyStatement = {
@@ -57,12 +72,14 @@ export type PolicyStatement = {
   balance: BalanceSummary;
   /** Newest first. */
   events: TimelineEvent[];
+  /** Oldest first (by the line's original charge). */
+  coverageLines: CoverageLineSummary[];
 };
 
 export const EVENT_LABEL: Record<string, string> = {
   POLICY_ISSUED: "Policy issued",
   COVERAGE_ADDED: "Coverage added",
-  EFFECTIVE_DATE_CORRECTED: "Effective date corrected",
+  COVERAGE_DATE_CORRECTED: "Coverage date corrected",
   POLICY_CANCELLED: "Policy cancelled",
   PAYMENT_RECORDED: "Payment recorded",
   REFUND_ISSUED: "Refund issued",
@@ -84,7 +101,10 @@ export function describeEntry(
 ): string {
   switch (entry.type) {
     case "CHARGE":
-      if (entry.coverageLineId) return `Premium, ${lineName(entry.coverageLineId) ?? "coverage line"}`;
+      if (entry.coverageLineId) {
+        const name = `Premium, ${lineName(entry.coverageLineId) ?? "coverage line"}`;
+        return entry.rebookOf ? `${name} (corrected)` : name;
+      }
       return entry.rebookOf ? "Premium, corrected effective date" : "Premium, policy issued";
     case "REVERSAL":
       return `Reversal of #${bySeq(entry.reversesEntryId) ?? "?"}`;
@@ -181,10 +201,42 @@ export function buildStatement(input: StatementInput): PolicyStatement {
       actor: actorLabel(ev.actorRole, ev.actorUserId, names),
       relatedEntries: related.map((e) => ({ id: e.id, seq: e.seq })),
       paymentStatus: status,
+      detail: eventDetail(ev.type, ev.payload),
     };
   });
 
-  return { policy, rows, balance: balanceSummary(finalBalance), events };
+  return { policy, rows, balance: balanceSummary(finalBalance), events, coverageLines: summarizeLines(lineRows, entries) };
+}
+
+function summarizeLines(lineRows: StatementInput["lineRows"], entries: LedgerEntry[]): CoverageLineSummary[] {
+  const lineCharges = entries.filter((e) => e.type === "CHARGE" && e.coverageLineId !== null);
+  const firstSeq = (id: string) =>
+    lineCharges.filter((c) => c.type === "CHARGE" && c.coverageLineId === id).reduce((min, c) => Math.min(min, c.seq), Infinity);
+  return [...lineRows]
+    .sort((a, b) => firstSeq(a.id) - firstSeq(b.id))
+    .map((line) => {
+      // Read screens report data problems instead of throwing (step 6 rule), so no liveChargeForLine here.
+      const live = lineCharges.filter(
+        (c) => c.type === "CHARGE" && c.coverageLineId === line.id && !isReversed(entries, c.id),
+      );
+      const only = live.length === 1 && live[0]!.type === "CHARGE" ? live[0]! : null;
+      return {
+        id: line.id,
+        name: line.name,
+        limitCents: line.limitCents,
+        rateBps: line.rateBps,
+        effectiveDate: only && only.type === "CHARGE" ? only.effectiveDate : null,
+        liveChargeId: only?.id ?? null,
+        liveChargeCents: only?.amountCents ?? null,
+      };
+    });
+}
+
+function eventDetail(type: string, payload: unknown): string | null {
+  if (type !== "COVERAGE_DATE_CORRECTED" || !payload || typeof payload !== "object") return null;
+  const p = payload as Record<string, unknown>;
+  const text = (k: string) => (typeof p[k] === "string" ? (p[k] as string) : "?");
+  return `${text("coverageName")}: ${text("oldEffectiveDate")} to ${text("newEffectiveDate")}. Reason: ${text("reason")}`;
 }
 
 function actorLabel(role: string, userId: string | null, names: Map<string, string>): string {

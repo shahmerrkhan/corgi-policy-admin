@@ -218,3 +218,74 @@ describe("Added coverage (step 8)", () => {
     expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
   });
 });
+
+describe("Coverage date corrected (step 9)", () => {
+  // Liquor Liability $612.00 (2026-03-01, 306/365), fully paid, corrected to 2026-02-22
+  // (313/365 = $626.00): reversal -$612.00, new charge $626.00, balance due $14.00.
+  const original = charge({ id: "c-old", date: "2026-03-01", seq: 1, amountCents: 61_200, effectiveDate: "2026-03-01", coverageLineId: "line-liquor", daysInEffect: 306 });
+  const pay = { id: "p1", type: "PAYMENT" as const, date: "2026-03-05", seq: 2, amountCents: -61_200, paymentId: "pay-1" };
+  const reversal = { id: "r1", type: "REVERSAL" as const, date: "2026-03-22", seq: 3, amountCents: -61_200, reversesEntryId: "c-old" };
+  const rebook = charge({ id: "c-new", date: "2026-03-22", seq: 4, amountCents: 62_600, effectiveDate: "2026-02-22", coverageLineId: "line-liquor", rebookOf: "c-old", daysInEffect: 313 });
+  const statement = statementOf([original, pay, reversal, rebook], {
+    entryRows: [
+      { entry: original, eventId: "ev-cov" },
+      { entry: pay, eventId: "ev-pay" },
+      { entry: reversal, eventId: "ev-fix" },
+      { entry: rebook, eventId: "ev-fix" },
+    ],
+    eventRows: [
+      {
+        id: "ev-fix",
+        type: "COVERAGE_DATE_CORRECTED",
+        transactionDate: "2026-03-22",
+        actorRole: "broker",
+        actorUserId: "user_broker",
+        payload: { coverageName: "Liquor Liability", oldEffectiveDate: "2026-03-01", newEffectiveDate: "2026-02-22", reason: "Keyed the wrong start date" },
+      },
+      { id: "ev-pay", type: "PAYMENT_RECORDED", transactionDate: "2026-03-05", actorRole: "stripe", actorUserId: null, payload: {} },
+      { id: "ev-cov", type: "COVERAGE_ADDED", transactionDate: "2026-03-01", actorRole: "broker", actorUserId: "user_broker", payload: {} },
+    ],
+    lineRows: [{ id: "line-liquor", name: "Liquor Liability", limitCents: 7_300_000, rateBps: 100 }],
+    actorNames: [{ role: "broker", clerkUserId: "user_broker", name: "Harbourline Insurance Brokers" }],
+  });
+
+  it("shows the original struck through and linked, the reversal, and the corrected charge; balance due $14.00", () => {
+    const { container } = render(<LedgerTable rows={statement.rows} />);
+    const old = container.querySelector<HTMLElement>("#entry-c-old")!;
+    expect(old.dataset.reversed).toBe("true");
+    expect(within(old).getByRole("link", { name: "Reversed by #3" }).getAttribute("href")).toBe("#entry-r1");
+    const rev = container.querySelector<HTMLElement>("#entry-r1")!;
+    expect(within(rev).getByRole("link", { name: "Reverses #1" }).getAttribute("href")).toBe("#entry-c-old");
+    expect(money(rev)).toEqual(["-$612.00", "(612.00) CR"]);
+    const fresh = container.querySelector<HTMLElement>("#entry-c-new")!;
+    expect(fresh.querySelector('[data-slot="entry-description"]')?.textContent).toBe("Premium, Liquor Liability (corrected)");
+    expect(money(fresh)).toEqual(["$626.00", "$14.00"]);
+    fireEvent.click(within(fresh).getByRole("button", { name: /Liquor Liability \(corrected\)/ }));
+    const calc = document.querySelector<HTMLElement>('[data-slot="charge-calculation"]')!;
+    expect(calc.textContent).toContain("$730.00 × 313 ÷ 365 = $626.00 (exact)");
+    expect(statement.balance).toEqual({ kind: "due", cents: 1_400 });
+  });
+
+  it("timeline shows Coverage date corrected with the dates and reason, linked to both new entries", () => {
+    const { container } = render(<PolicyTimeline events={statement.events} />);
+    const first = container.querySelector("li")!;
+    expect(first.dataset.eventType).toBe("COVERAGE_DATE_CORRECTED");
+    expect(first.textContent).toContain("Coverage date corrected");
+    expect(first.querySelector('[data-slot="event-detail"]')?.textContent).toBe(
+      "Liquor Liability: 2026-03-01 to 2026-02-22. Reason: Keyed the wrong start date",
+    );
+    expect(within(first).getAllByRole("link").map((a) => a.textContent)).toEqual(["Ledger entry #3", "Ledger entry #4"]);
+  });
+
+  it("lists the coverage line at its current date; Correct date only when the page passes correctHref", () => {
+    expect(statement.coverageLines).toEqual([
+      { id: "line-liquor", name: "Liquor Liability", limitCents: 7_300_000, rateBps: 100, effectiveDate: "2026-02-22", liveChargeId: "c-new", liveChargeCents: 62_600 },
+    ]);
+    const { unmount } = render(<PolicyDetail statement={statement} />);
+    expect(screen.getByText("2026-02-22", { selector: '[data-slot="line-effective-date"]' })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Correct date/ })).toBeNull();
+    unmount();
+    render(<PolicyDetail statement={statement} correctHref={(id) => `/fix/${id}`} />);
+    expect(screen.getByRole("link", { name: /Correct date/ }).getAttribute("href")).toBe("/fix/line-liquor");
+  });
+});
