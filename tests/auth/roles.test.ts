@@ -21,9 +21,15 @@ describe("routeDecision", () => {
   const none = { signedIn: true, role: null } as const;
 
   it("leaves public routes open", () => {
-    for (const p of ["/sign-in", "/sign-in/factor-one", "/no-access", "/api/stripe/webhook"]) {
+    for (const p of ["/sign-in", "/sign-in/factor-one", "/no-access", "/api/webhooks/stripe"]) {
       expect(routeDecision(p, out)).toBe("allow");
     }
+  });
+
+  it("keeps the Stripe webhook public for every session and the old path closed", () => {
+    for (const s of [out, broker, holder, none]) expect(routeDecision("/api/webhooks/stripe", s)).toBe("allow");
+    expect(routeDecision("/api/stripe/webhook", out)).toBe("sign-in");
+    expect(routeDecision("/api/webhooks/stripe-other", out)).toBe("sign-in");
   });
 
   it("sends signed-out users to sign in", () => {

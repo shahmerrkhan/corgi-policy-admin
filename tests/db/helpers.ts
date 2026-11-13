@@ -13,6 +13,7 @@ import {
   paymentStatusEvents,
   policies,
   policyEvents,
+  stripeEvents,
 } from "@/lib/db/schema";
 import { type Tx, withTx } from "@/lib/db/with-tx";
 
@@ -78,6 +79,7 @@ export async function insertFixture(tx: Tx) {
     paymentEntry: randomUUID(),
     allocation: randomUUID(),
     statusEvent: randomUUID(),
+    stripeEvent: randomUUID(),
   };
   const tag = ids.broker.slice(0, 8);
   await tx.insert(brokers).values({ id: ids.broker, name: "Test Broker", email: `broker-${tag}@test.invalid` });
@@ -128,6 +130,9 @@ export async function insertFixture(tx: Tx) {
     amountCents: 1_000_000,
     status: "pending",
     stripePaymentIntentId: `pi_test_${ids.payment}`,
+    stripeCheckoutSessionId: `cs_test_${ids.payment}`,
+    stripeEventId: `evt_test_${ids.payment}`,
+    currency: "usd",
   });
   await tx.insert(ledgerEntries).values([
     {
@@ -166,6 +171,13 @@ export async function insertFixture(tx: Tx) {
     paymentId: ids.payment,
     fromStatus: null,
     toStatus: "pending",
+  });
+  await tx.insert(stripeEvents).values({
+    id: ids.stripeEvent,
+    stripeEventId: `evt_test_${ids.payment}`,
+    type: "checkout.session.completed",
+    stripeCheckoutSessionId: `cs_test_${ids.payment}`,
+    outcome: "recorded",
   });
   return ids;
 }

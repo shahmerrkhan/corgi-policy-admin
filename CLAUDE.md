@@ -11,7 +11,7 @@ relevant guide in `node_modules/next/dist/docs/` and heed deprecation notices.
 - npm only (not pnpm). Run installs and deletes as separate commands, never chained.
 
 ## Folder map
-- `app/` routes: `broker/`, `portal/` (policyholder), `api/stripe/webhook/`
+- `app/` routes: `broker/`, `portal/` (policyholder), `api/webhooks/stripe/`
 - `actions/` server actions
 - `lib/domain/` pure pricing, proration, allocation, correction, cancellation (no DB, unit-tested)
 - `lib/services/` transactional commands and read models
@@ -21,7 +21,7 @@ relevant guide in `node_modules/next/dist/docs/` and heed deprecation notices.
 
 ## Ledger rules (non-negotiable)
 - Append-only, never UPDATE or DELETE: `policy_events`, `ledger_entries`,
-  `payment_allocations`, `payment_status_events`, `coverage_lines`, `email_log`.
+  `payment_allocations`, `payment_status_events`, `coverage_lines`, `stripe_events`, `email_log`.
   Enforced by DB triggers.
 - Corrections are reverse-and-rebook: the original entry stays, a REVERSAL entry negates it
   exactly, and a new entry is computed at the corrected value.
@@ -43,6 +43,13 @@ relevant guide in `node_modules/next/dist/docs/` and heed deprecation notices.
 - Writes/commands: `withTx()` in `lib/db/with-tx.ts` creates a Pool per call and ends it.
 - ESLint blocks `Pool`/`Client` from `@neondatabase/serverless` and all of
   `drizzle-orm/neon-serverless` outside `lib/db/with-tx.ts`. No global Pool.
+
+## Stripe
+- Only the webhook (`/api/webhooks/stripe`) writes payments. `stripe_events` is the idempotency
+  gate: insert it with its final outcome only after the checks, since it is append-only.
+- API version is pinned to the stripe package's own (`lib/stripe/client.ts`); on upgrade, re-check
+  removed params (2026-10-28.endive dropped Checkout `payment_method_types`).
+- vitest aliases `server-only` to its empty module; keep that alias in both vitest configs.
 
 ## Process
 - Record every decision in `DECISIONS.md` (dated, one-line reason).

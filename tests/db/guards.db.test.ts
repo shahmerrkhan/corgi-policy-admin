@@ -63,6 +63,9 @@ describe("payments: only pending -> succeeded | failed", () => {
         seq: 2,
         amountCents: 500,
         stripePaymentIntentId: `pi_test_${second}`,
+        stripeCheckoutSessionId: `cs_test_${second}`,
+        stripeEventId: `evt_test_${second}`,
+        currency: "usd",
       });
       await expectAccepted(tx, sql`UPDATE payments SET status = 'failed' WHERE id = ${second}`);
 
@@ -108,9 +111,42 @@ describe("payments: only pending -> succeeded | failed", () => {
       const ids = await insertFixture(tx);
       await expectRejected(
         tx,
-        sql`INSERT INTO payments (policy_id, date, seq, amount_cents, stripe_payment_intent_id)
-            VALUES (${ids.policy}, '2026-02-01', 9, 100, ${`pi_test_${ids.payment}`})`,
+        sql`INSERT INTO payments (policy_id, date, seq, amount_cents, stripe_payment_intent_id,
+              stripe_checkout_session_id, stripe_event_id, currency)
+            VALUES (${ids.policy}, '2026-02-01', 9, 100, ${`pi_test_${ids.payment}`}, 'cs_test_other', 'evt_test_other', 'usd')`,
         /payments_stripe_payment_intent_id_unique/,
+      );
+    });
+  });
+
+  it("rejects a reused checkout session or event id, a non-USD currency, and freezes the Stripe columns", async () => {
+    await rolledBack(async (tx) => {
+      const ids = await insertFixture(tx);
+      await expectRejected(
+        tx,
+        sql`INSERT INTO payments (policy_id, date, seq, amount_cents, stripe_payment_intent_id,
+              stripe_checkout_session_id, stripe_event_id, currency)
+            VALUES (${ids.policy}, '2026-02-01', 9, 100, 'pi_test_other', ${`cs_test_${ids.payment}`}, 'evt_test_other', 'usd')`,
+        /payments_stripe_checkout_session_id_unique/,
+      );
+      await expectRejected(
+        tx,
+        sql`INSERT INTO payments (policy_id, date, seq, amount_cents, stripe_payment_intent_id,
+              stripe_checkout_session_id, stripe_event_id, currency)
+            VALUES (${ids.policy}, '2026-02-01', 9, 100, 'pi_test_other', 'cs_test_other', ${`evt_test_${ids.payment}`}, 'usd')`,
+        /payments_stripe_event_id_unique/,
+      );
+      await expectRejected(
+        tx,
+        sql`INSERT INTO payments (policy_id, date, seq, amount_cents, stripe_payment_intent_id,
+              stripe_checkout_session_id, stripe_event_id, currency)
+            VALUES (${ids.policy}, '2026-02-01', 9, 100, 'pi_test_other', 'cs_test_other', 'evt_test_other', 'cad')`,
+        /payments_currency_usd/,
+      );
+      await expectRejected(
+        tx,
+        sql`UPDATE payments SET status = 'succeeded', stripe_checkout_session_id = 'cs_changed' WHERE id = ${ids.payment}`,
+        /payments: only status and updated_at may change/,
       );
     });
   });

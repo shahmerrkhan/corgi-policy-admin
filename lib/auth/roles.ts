@@ -13,7 +13,7 @@ export function roleFromClaims(claims: unknown): Role | null {
 
 export type RouteDecision = "allow" | "sign-in" | "no-access";
 
-const PUBLIC_PREFIXES = ["/sign-in", "/no-access", "/api/stripe/webhook"];
+const PUBLIC_PREFIXES = ["/sign-in", "/no-access", "/api/webhooks/stripe"];
 
 function under(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);

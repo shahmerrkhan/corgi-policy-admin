@@ -97,6 +97,9 @@ describe("payment and allocation mapping", () => {
       amountCents: 73000,
       status: "succeeded",
       stripePaymentIntentId: "pi_1",
+      stripeCheckoutSessionId: "cs_1",
+      stripeEventId: "evt_1",
+      currency: "usd",
       createdAt,
       updatedAt: createdAt,
     };

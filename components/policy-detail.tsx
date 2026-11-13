@@ -6,8 +6,9 @@ import { formatCents } from "@/lib/format/money";
 import type { PolicyStatement } from "@/lib/services/statement-view";
 
 // One policy's header, statement and timeline. Shared by the broker and portal pages;
-// each page loads the statement with its own session-scoped read model.
-export function PolicyDetail({ statement }: { statement: PolicyStatement }) {
+// each page loads the statement with its own session-scoped read model. `actions` sits
+// under the balance (the portal's Pay balance button); the broker page passes none.
+export function PolicyDetail({ statement, actions }: { statement: PolicyStatement; actions?: React.ReactNode }) {
   const { policy, rows, balance, events } = statement;
   return (
     <>
@@ -28,7 +29,10 @@ export function PolicyDetail({ statement }: { statement: PolicyStatement }) {
             <span className="font-mono">{formatCents(policy.premiumCents)}</span>
           </p>
         </div>
-        <BalanceSummary balance={balance} />
+        <div className="flex flex-col gap-2 md:items-end">
+          <BalanceSummary balance={balance} />
+          {actions}
+        </div>
       </header>
 
       <section aria-labelledby="statement-heading" className="flex flex-col gap-3">

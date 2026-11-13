@@ -15,6 +15,20 @@
       "when": 1794522191432,
       "tag": "0001_append_only_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794545537461,
+      "tag": "0002_stripe_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794545539201,
+      "tag": "0003_stripe_events_append_only",
+      "breakpoints": true
     }
   ]
 }

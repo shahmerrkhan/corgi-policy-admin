@@ -1,7 +1,8 @@
 // Database schema (step 3). Money is integer cents (bigint, read as JS number); calendar
 // dates are Postgres `date` read as "YYYY-MM-DD" strings; timestamptz is audit time only.
 // Append-only tables (UPDATE/DELETE/TRUNCATE blocked by triggers in drizzle/):
-//   policy_events, ledger_entries, payment_allocations, payment_status_events, coverage_lines.
+//   policy_events, ledger_entries, payment_allocations, payment_status_events, coverage_lines,
+//   stripe_events.
 // policies and payments may change only through guard triggers (see the trigger migration).
 
 import { sql } from "drizzle-orm";
@@ -40,6 +41,7 @@ export const eventType = pgEnum("event_type", [
   "PAYMENT_RECORDED",
   "REFUND_ISSUED",
 ]);
+export const stripeEventOutcome = pgEnum("stripe_event_outcome", ["recorded", "ignored"]);
 export const actorRole = pgEnum("actor_role", ["broker", "policyholder", "stripe", "system"]);
 
 export const policyNumberSeq = pgSequence("policy_number_seq", { startWith: 1 });
@@ -187,12 +189,17 @@ export const payments = pgTable(
     amountCents: cents("amount_cents").notNull(),
     status: paymentStatus("status").notNull().default("pending"),
     stripePaymentIntentId: text("stripe_payment_intent_id").notNull().unique(),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id").notNull().unique(),
+    /** The webhook event that recorded this payment. */
+    stripeEventId: text("stripe_event_id").notNull().unique(),
+    currency: text("currency").notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     unique("payments_policy_seq_unique").on(t.policyId, t.seq),
     check("payments_amount_positive", sql`${t.amountCents} > 0`),
+    check("payments_currency_usd", sql`${t.currency} = 'usd'`),
     check("payments_seq_positive", sql`${t.seq} > 0`),
   ],
 );
@@ -326,6 +333,30 @@ export const paymentStatusEvents = pgTable(
   ],
 );
 
+/**
+ * Every processed Stripe webhook event (checkout.session.completed, paid), recorded or
+ * ignored with a reason. Unique stripe_event_id is the idempotency gate. Append-only.
+ */
+export const stripeEvents = pgTable(
+  "stripe_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    stripeEventId: text("stripe_event_id").notNull().unique(),
+    type: text("type").notNull(),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+    outcome: stripeEventOutcome("outcome").notNull(),
+    reason: text("reason"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "stripe_events_reason_iff_ignored",
+      sql`(${t.outcome} = 'ignored' AND ${t.reason} IS NOT NULL AND btrim(${t.reason}) <> '')
+        OR (${t.outcome} = 'recorded' AND ${t.reason} IS NULL)`,
+    ),
+  ],
+);
+
 export type BrokerRow = typeof brokers.$inferSelect;
 export type CustomerRow = typeof customers.$inferSelect;
 export type PolicyRow = typeof policies.$inferSelect;
@@ -338,3 +369,4 @@ export type NewLedgerEntryRow = typeof ledgerEntries.$inferInsert;
 export type PaymentAllocationRow = typeof paymentAllocations.$inferSelect;
 export type NewPaymentAllocationRow = typeof paymentAllocations.$inferInsert;
 export type PaymentStatusEventRow = typeof paymentStatusEvents.$inferSelect;
+export type StripeEventRow = typeof stripeEvents.$inferSelect;

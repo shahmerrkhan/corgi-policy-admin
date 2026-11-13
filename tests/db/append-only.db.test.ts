@@ -2,16 +2,18 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { expectRejected, insertFixture, rolledBack } from "./helpers";
 
+// [table, fixture id key, a column to "update" to itself]
 const APPEND_ONLY = [
-  ["policy_events", "event"],
-  ["ledger_entries", "charge"],
-  ["payment_allocations", "allocation"],
-  ["payment_status_events", "statusEvent"],
-  ["coverage_lines", "coverageLine"],
+  ["policy_events", "event", "created_at"],
+  ["ledger_entries", "charge", "created_at"],
+  ["payment_allocations", "allocation", "created_at"],
+  ["payment_status_events", "statusEvent", "created_at"],
+  ["coverage_lines", "coverageLine", "created_at"],
+  ["stripe_events", "stripeEvent", "received_at"],
 ] as const;
 
 describe("append-only tables reject UPDATE, DELETE and TRUNCATE", () => {
-  it.each(APPEND_ONLY)("%s", async (table, key) => {
+  it.each(APPEND_ONLY)("%s", async (table, key, column) => {
     await rolledBack(async (tx) => {
       const ids = await insertFixture(tx);
       const t = sql.identifier(table);
@@ -19,7 +21,7 @@ describe("append-only tables reject UPDATE, DELETE and TRUNCATE", () => {
 
       await expectRejected(
         tx,
-        sql`UPDATE ${t} SET created_at = created_at WHERE id = ${id}`,
+        sql`UPDATE ${t} SET ${sql.identifier(column)} = ${sql.identifier(column)} WHERE id = ${id}`,
         new RegExp(`append-only: UPDATE on ${table} is not allowed`),
       );
       await expectRejected(

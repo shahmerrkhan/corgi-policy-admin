@@ -89,3 +89,13 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
 - Descriptions: original charge "Premium, policy issued"; rebooked charge "Premium, corrected effective date"; coverage-line charge "Premium, <line name>"; reversal "Reversal of #seq"; credit "Return premium, cancellation"; payment "Payment"; refund "Refund".
 - Timeline labels: Policy issued, Coverage added, Effective date corrected, Policy cancelled, Payment recorded, Refund issued. Newest first.
 - A charge's calculation shows the limit and rate (from its coverage line, or the policy), the premium step, term days, days in effect and the proration step, each with its exact remainder and rounding direction.
+
+## Online payments (Stripe Checkout, test mode)
+- The policyholder pays the whole current balance due in one Stripe Checkout payment. The amount is read from the ledger on the server when they click Pay balance; the button shows only when the balance due is above $0.00. Brokers cannot pay.
+- Payments are in USD (one constant, PAYMENT_CURRENCY = "usd"), card only.
+- A Checkout page expires after 31 minutes, so an old amount cannot be paid much later.
+- Only the Stripe webhook records a payment. The return page says "Payment processing" and shows the statement; the payment appears once Stripe confirms it.
+- The recorded amount is what Stripe collected (amount_total), never what was asked for. If it is more than is owed, the extra stays on the account as unapplied cash (credit).
+- A payment is dated the Toronto calendar date of the Stripe event.
+- A payment that arrives for a cancelled policy is still recorded; it pays any premium still owed and the rest stays as credit.
+- Events that cannot be recorded (unknown policy, wrong currency, live mode, no amount or payment intent, a payment intent or session already recorded) are kept as ignored with a reason and change nothing else.

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { PayBalanceForm } from "@/components/pay-balance-form";
 import { PolicyDetail } from "@/components/policy-detail";
 import { policyholderPage } from "@/lib/auth/page";
 import { isUuid } from "@/lib/services/inputs";
@@ -14,5 +15,12 @@ export default async function PortalPolicyPage({ params }: PageProps<"/portal/po
   // Scoped by the session's customer id, never the URL: another customer's policy is a 404.
   const statement = await getStatementForCustomer(actor.customerId, policyId);
   if (!statement) notFound();
-  return <PolicyDetail statement={statement} />;
+  const { balance } = statement;
+  const due = balance.kind === "due" && balance.cents > 0;
+  return (
+    <PolicyDetail
+      statement={statement}
+      actions={due ? <PayBalanceForm policyId={statement.policy.id} balanceCents={balance.cents} /> : null}
+    />
+  );
 }
