@@ -11,6 +11,7 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
 - Each added coverage line has its own limit and rate_bps (default: the policy rate).
 
 ## Terms
+- 12-month terms only; no short or long terms.
 - A term is exactly 12 months, [start, same day next year). Its length is the actual day count:
   365, or 366 when it spans Feb 29.
 - A term cannot start on Feb 29 (rejected with INVALID_TERM_START), because "same day next
@@ -24,6 +25,8 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
   2026-02-22 = 313/365 = $626.00.
 
 ## Corrections (effective date)
+- The only correction type is a coverage line's effective date. Limit, rate and the policy's
+  own start date cannot be corrected in v1.
 - Reverse-and-rebook: the original charge stays, a REVERSAL copies its amount negated (never
   recomputed), and a new CHARGE is computed at the corrected date and points to the original.
 - Only live (not reversed) charges can be corrected; correcting a reversed one returns
@@ -57,6 +60,8 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
   So earned + credit always equals the charge exactly.
 - A charge effective on or after the cancel date is credited in full.
 - Alternative not implemented: short rate (ISO 0.90 x pro rata).
+- Cut for time: this calculation is written and unit-tested in lib/domain/cancellation.ts, but
+  there is no cancel command, action or screen. No policy can be cancelled in the app today.
 
 ## Credits and releases
 - A credit (or reversal) first reduces the charge's unpaid amount. Only max(0, credit - unpaid)
@@ -78,6 +83,8 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
   refundable returns NOT_ENOUGH_REFUNDABLE_CASH.
 - Credit stays on account until the broker refunds it; cancellation shows a refund preview of
   all refundable cash and refunds it in the same confirm.
+- Cut for time: these rules are written and unit-tested in lib/domain/refund.ts, but there is no
+  refund command, action or screen, and no Stripe refund is ever issued.
 
 ## Ledger sign convention
 - The sum of entries is the balance: CHARGE +, REVERSAL -, CREDIT -, PAYMENT -, REFUND +.
@@ -142,3 +149,26 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
 - Emails are a courtesy, not a record: the payment or correction stands even if the email is skipped or fails. Every attempt is kept in email_log as sent, skipped or failed.
 - Only addresses in RESEND_ALLOWED_TO (default delivered@resend.dev) are emailed; others are logged as skipped.
 - At most one email per kind per event: a Stripe retry or a double submit never sends a second one.
+
+## Scope cuts
+- Cancellation with a return-premium credit, and refunds, were planned (pro rata, no fee, as
+  above) and cut for time. The pure calculations exist in lib/domain; nothing in the app calls
+  them.
+- One product only: commercial general liability (CGL).
+- Only effective-date corrections on added coverage lines.
+- 12-month terms only, and a term cannot start on Feb 29.
+- The correction link rules (same policy, reversal = minus the original, rebook keeps the
+  premium and line, day counts match the dates) are enforced in lib/domain and the service
+  layer, not by a database trigger.
+
+## Environments
+- Clerk runs on a development instance, also on the deployed app, so a "Development mode"
+  badge is visible. A production instance needs a custom domain.
+- Local development, the db tests and the deployed app share one Neon database. The db tests
+  always roll back, so they leave no rows behind.
+
+## Email allowlist
+- Resend's onboarding sender (onboarding@resend.dev) only delivers to the Resend account owner
+  and to delivered@resend.dev. So the app emails only addresses in RESEND_ALLOWED_TO (default
+  delivered@resend.dev), and logs every other recipient as skipped. The seeded customer's
+  contact email is delivered@resend.dev.
