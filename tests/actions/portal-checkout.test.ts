@@ -1,7 +1,7 @@
 // startCheckout: only the signed-in policyholder who owns the policy can open a Checkout
 // session, only for a balance due > 0, and the amount comes from the ledger (the statement
 // read model), never from the form. Stripe and the database are mocked.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
 import type { LedgerEntry } from "@/lib/domain";
 import { charge, policy, statementOf } from "../statement-fixtures";
@@ -16,9 +16,6 @@ const create = vi.fn<(params: Stripe.Checkout.SessionCreateParams) => Promise<{ 
 );
 const getStripe = vi.fn(() => ({ checkout: { sessions: { create } } }));
 vi.mock("@/lib/stripe/client", () => ({ getStripe }));
-vi.mock("next/headers", () => ({
-  headers: vi.fn(async () => new Headers({ host: "localhost:3000" })),
-}));
 class Redirect extends Error {}
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((to: string) => {
@@ -42,6 +39,11 @@ describe("startCheckout", () => {
     create.mockClear();
     getStripe.mockClear();
     vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("APP_URL", "https://corgi.example.com");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("creates a USD card session for the ledger balance and redirects to Stripe", async () => {
@@ -65,9 +67,9 @@ describe("startCheckout", () => {
     expect(params.metadata).toEqual({ policyId: POLICY, customerId: CUSTOMER_ROW_ID });
     expect(params.payment_intent_data?.metadata).toEqual({ policyId: POLICY, customerId: CUSTOMER_ROW_ID });
     expect(params.success_url).toBe(
-      `http://localhost:3000/portal/policies/${POLICY}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      `https://corgi.example.com/portal/policies/${POLICY}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
     );
-    expect(params.cancel_url).toBe(`http://localhost:3000/portal/policies/${POLICY}/payment/cancelled`);
+    expect(params.cancel_url).toBe(`https://corgi.example.com/portal/policies/${POLICY}/payment/cancelled`);
     expect(params.customer_email).toBeUndefined();
   });
 
