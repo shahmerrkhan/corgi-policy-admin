@@ -21,7 +21,7 @@ export type CheckoutCompleted = {
 };
 
 export type RecordOutcome =
-  | { outcome: "recorded"; paymentId: string }
+  | { outcome: "recorded"; paymentId: string; /** The PAYMENT_RECORDED event id. */ eventId: string }
   | { outcome: "ignored"; reason: string }
   | { outcome: "duplicate" };
 
@@ -29,6 +29,8 @@ export type WebhookDeps = {
   webhookSecret: () => string;
   record: (input: CheckoutCompleted) => Promise<RecordOutcome>;
   log: (line: string) => void;
+  /** Runs after a committed "recorded" outcome (the payment email). Can never change the response. */
+  afterRecorded?: (result: { paymentId: string; eventId: string }) => Promise<unknown>;
 };
 
 export type WebhookResponse = { status: 200 | 400 | 500; body: { received: boolean; outcome?: string } };
@@ -73,13 +75,23 @@ export async function handleStripeWebhook(
     return { status: 200, body: { received: true, outcome: "skipped" } };
   }
 
+  let result: RecordOutcome;
   try {
-    const result = await deps.record(checkoutCompletedFrom(event, session));
-    deps.log(`stripe webhook ${event.id}: ${result.outcome}${result.outcome === "ignored" ? ` (${result.reason})` : ""}`);
-    return { status: 200, body: { received: true, outcome: result.outcome } };
+    result = await deps.record(checkoutCompletedFrom(event, session));
   } catch (err) {
     const name = err instanceof Error ? err.name : "unknown";
     deps.log(`stripe webhook ${event.id}: recording failed (${name}), rolled back`);
     return { status: 500, body: { received: false } };
   }
+  deps.log(`stripe webhook ${event.id}: ${result.outcome}${result.outcome === "ignored" ? ` (${result.reason})` : ""}`);
+
+  // The transaction has committed. The email is best effort: a failure is logged, never a 500.
+  if (result.outcome === "recorded" && deps.afterRecorded) {
+    try {
+      await deps.afterRecorded({ paymentId: result.paymentId, eventId: result.eventId });
+    } catch (err) {
+      deps.log(`stripe webhook ${event.id}: after-commit step failed (${err instanceof Error ? err.name : "unknown"})`);
+    }
+  }
+  return { status: 200, body: { received: true, outcome: result.outcome } };
 }

@@ -10,6 +10,7 @@ const APPEND_ONLY = [
   ["payment_status_events", "statusEvent", "created_at"],
   ["coverage_lines", "coverageLine", "created_at"],
   ["stripe_events", "stripeEvent", "received_at"],
+  ["email_log", "emailLog", "created_at"],
 ] as const;
 
 describe("append-only tables reject UPDATE, DELETE and TRUNCATE", () => {

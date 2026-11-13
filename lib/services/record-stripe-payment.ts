@@ -7,6 +7,7 @@
 //      id means a duplicate delivery: write nothing
 //   5. payment (succeeded), status event, PAYMENT_RECORDED event, PAYMENT ledger entry,
 //      FIFO allocations (lib/domain planPaymentApplication), then assertInvariants.
+// The payment email is sent by the webhook route after this commits, never in here.
 // 23505 is never caught here: Postgres aborts the transaction, the webhook returns 500 and
 // Stripe's retry sees the committed row and becomes a no-op.
 import { randomUUID } from "node:crypto";
@@ -161,5 +162,5 @@ export async function recordStripePaymentCommand(tx: Tx, input: CheckoutComplete
     payments: [...paymentList, payment],
   });
 
-  return { outcome: "recorded", paymentId: payment.id };
+  return { outcome: "recorded", paymentId: payment.id, eventId };
 }

@@ -136,3 +136,9 @@ Business rules the app implements. Code: `lib/domain/`. Money is integer cents; 
 - A payment is dated the Toronto calendar date of the Stripe event.
 - A payment that arrives for a cancelled policy is still recorded; it pays any premium still owed and the rest stays as credit.
 - Events that cannot be recorded (unknown policy, wrong currency, live mode, no amount or payment intent, a payment intent or session already recorded) are kept as ignored with a reason and change nothing else.
+
+## Customer emails (Resend sandbox)
+- The customer's contact email gets one plain-text email when a payment is recorded (amount, payment date, balance after) and one when a coverage date is corrected (old and new effective date, old and new charge, net change, balance after).
+- Emails are a courtesy, not a record: the payment or correction stands even if the email is skipped or fails. Every attempt is kept in email_log as sent, skipped or failed.
+- Only addresses in RESEND_ALLOWED_TO (default delivered@resend.dev) are emailed; others are logged as skipped.
+- At most one email per kind per event: a Stripe retry or a double submit never sends a second one.

@@ -11,6 +11,8 @@ const withTx = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(fakeTx)
 vi.mock("@/lib/db/with-tx", () => ({ withTx }));
 const correctCoverageCommand = vi.fn();
 vi.mock("@/lib/services/correct-coverage", () => ({ correctCoverageCommand }));
+const notifyCoverageCorrected = vi.fn<(eventId: string) => Promise<"sent">>(async () => "sent");
+vi.mock("@/lib/email/notify", () => ({ notifyCoverageCorrected }));
 const redirect = vi.fn();
 vi.mock("next/navigation", () => ({ redirect }));
 
@@ -44,6 +46,7 @@ describe("correctCoverageDate action", () => {
     withTx.mockClear();
     correctCoverageCommand.mockReset();
     redirect.mockReset();
+    notifyCoverageCorrected.mockClear();
   });
 
   it("passes the parsed input and redirects to the new charge", async () => {
@@ -85,5 +88,26 @@ describe("correctCoverageDate action", () => {
   it("shows any other business rejection", async () => {
     correctCoverageCommand.mockResolvedValue({ ok: false, code: "SAME_EFFECTIVE_DATE", message: "Same date." });
     expect(await correctCoverageDate({}, form())).toEqual({ message: "Same date." });
+  });
+
+  const committed = (alreadyCorrected: boolean) => ({
+    ok: true,
+    value: { policyId: POLICY_ID, eventId: REQUEST_ID, newChargeId: NEW_CHARGE_ID, alreadyCorrected },
+  });
+
+  it("emails once after the transaction commits, then redirects", async () => {
+    correctCoverageCommand.mockResolvedValue(committed(false));
+    await correctCoverageDate({}, form());
+    expect(notifyCoverageCorrected).toHaveBeenCalledExactlyOnceWith(REQUEST_ID);
+    expect(withTx.mock.invocationCallOrder[0]!).toBeLessThan(notifyCoverageCorrected.mock.invocationCallOrder[0]!);
+    expect(redirect).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not email on a double submit or a rejection", async () => {
+    correctCoverageCommand.mockResolvedValueOnce(committed(true));
+    await correctCoverageDate({}, form());
+    correctCoverageCommand.mockResolvedValueOnce({ ok: false, code: "SAME_EFFECTIVE_DATE", message: "Same date." });
+    await correctCoverageDate({}, form());
+    expect(notifyCoverageCorrected).not.toHaveBeenCalled();
   });
 });

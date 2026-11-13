@@ -43,6 +43,20 @@
       "when": 1794600008375,
       "tag": "0005_coverage_correction",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794608375008,
+      "tag": "0006_email_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794608382639,
+      "tag": "0007_email_log_append_only",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@
 import { redirect } from "next/navigation";
 import { requireBroker } from "@/lib/auth/actor";
 import { withTx } from "@/lib/db/with-tx";
+import { notifyCoverageCorrected } from "@/lib/email/notify";
 import { createCustomerCommand } from "@/lib/services/customers";
 import { addCoverageCommand } from "@/lib/services/add-coverage";
 import { correctCoverageCommand } from "@/lib/services/correct-coverage";
@@ -109,6 +110,10 @@ export async function correctCoverageDate(
       ? { message: result.message, restartHref: `/broker/policies/${policyId}/coverage/${coverageLineId}/correct` }
       : { message: result.message };
   }
+
+  // The transaction has committed. Email the customer once (not on a double submit);
+  // notifyCoverageCorrected never throws, so the correction always stands.
+  if (!result.value.alreadyCorrected) await notifyCoverageCorrected(result.value.eventId);
 
   redirect(`/broker/policies/${result.value.policyId}#entry-${result.value.newChargeId}`);
 }

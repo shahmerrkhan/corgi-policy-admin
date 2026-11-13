@@ -2,7 +2,7 @@
 // dates are Postgres `date` read as "YYYY-MM-DD" strings; timestamptz is audit time only.
 // Append-only tables (UPDATE/DELETE/TRUNCATE blocked by triggers in drizzle/):
 //   policy_events, ledger_entries, payment_allocations, payment_status_events, coverage_lines,
-//   stripe_events.
+//   stripe_events, email_log.
 // policies and payments may change only through guard triggers (see the trigger migration).
 
 import { sql } from "drizzle-orm";
@@ -42,6 +42,8 @@ export const eventType = pgEnum("event_type", [
   "REFUND_ISSUED",
 ]);
 export const stripeEventOutcome = pgEnum("stripe_event_outcome", ["recorded", "ignored"]);
+export const emailKind = pgEnum("email_kind", ["PAYMENT_RECEIVED", "COVERAGE_DATE_CORRECTED"]);
+export const emailStatus = pgEnum("email_status", ["sent", "skipped", "failed"]);
 export const actorRole = pgEnum("actor_role", ["broker", "policyholder", "stripe", "system"]);
 
 export const policyNumberSeq = pgSequence("policy_number_seq", { startWith: 1 });
@@ -391,6 +393,35 @@ export const stripeEvents = pgTable(
   ],
 );
 
+/**
+ * One row per email attempt, written after the business transaction commits (step 11).
+ * Unique (kind, event_id): a webhook retry or double submit never sends a second email.
+ * A sent row has the Resend id. Append-only.
+ */
+export const emailLog = pgTable(
+  "email_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: emailKind("kind").notNull(),
+    policyId: uuid("policy_id")
+      .notNull()
+      .references(() => policies.id, fk),
+    recipient: text("recipient").notNull(),
+    status: emailStatus("status").notNull(),
+    providerId: text("provider_id"),
+    error: text("error"),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => policyEvents.id, fk),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("email_log_kind_event_unique").on(t.kind, t.eventId),
+    check("email_log_provider_id_iff_sent", sql`(${t.status} = 'sent') = (${t.providerId} IS NOT NULL)`),
+    check("email_log_error_length", sql`${t.error} IS NULL OR char_length(${t.error}) <= 300`),
+  ],
+);
+
 export type BrokerRow = typeof brokers.$inferSelect;
 export type CustomerRow = typeof customers.$inferSelect;
 export type PolicyRow = typeof policies.$inferSelect;
@@ -404,3 +435,4 @@ export type PaymentAllocationRow = typeof paymentAllocations.$inferSelect;
 export type NewPaymentAllocationRow = typeof paymentAllocations.$inferInsert;
 export type PaymentStatusEventRow = typeof paymentStatusEvents.$inferSelect;
 export type StripeEventRow = typeof stripeEvents.$inferSelect;
+export type EmailLogRow = typeof emailLog.$inferSelect;

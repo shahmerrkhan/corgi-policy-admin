@@ -7,6 +7,7 @@ import {
   brokers,
   coverageLines,
   customers,
+  emailLog,
   ledgerEntries,
   paymentAllocations,
   payments,
@@ -80,6 +81,7 @@ export async function insertFixture(tx: Tx) {
     allocation: randomUUID(),
     statusEvent: randomUUID(),
     stripeEvent: randomUUID(),
+    emailLog: randomUUID(),
   };
   const tag = ids.broker.slice(0, 8);
   await tx.insert(brokers).values({ id: ids.broker, name: "Test Broker", email: `broker-${tag}@test.invalid` });
@@ -178,6 +180,15 @@ export async function insertFixture(tx: Tx) {
     type: "checkout.session.completed",
     stripeCheckoutSessionId: `cs_test_${ids.payment}`,
     outcome: "recorded",
+  });
+  await tx.insert(emailLog).values({
+    id: ids.emailLog,
+    kind: "PAYMENT_RECEIVED",
+    policyId: ids.policy,
+    recipient: "delivered@resend.dev",
+    status: "skipped",
+    error: "RESEND_API_KEY not set",
+    eventId: ids.event,
   });
   return ids;
 }

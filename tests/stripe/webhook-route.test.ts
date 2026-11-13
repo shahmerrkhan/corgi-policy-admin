@@ -8,9 +8,11 @@ import { WEBHOOK_SECRET, checkoutEvent, signed } from "./fixtures";
 const withTx = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({ fake: "tx" }));
 vi.mock("@/lib/db/with-tx", () => ({ withTx }));
 const recordStripePaymentCommand = vi.fn<(tx: unknown, input: CheckoutCompleted) => Promise<RecordOutcome>>(
-  async () => ({ outcome: "recorded", paymentId: "pay_1" }),
+  async () => ({ outcome: "recorded", paymentId: "pay_1", eventId: "ev_1" }),
 );
 vi.mock("@/lib/services/record-stripe-payment", () => ({ recordStripePaymentCommand }));
+const notifyPaymentReceived = vi.fn<(eventId: string) => Promise<"sent">>(async () => "sent");
+vi.mock("@/lib/email/notify", () => ({ notifyPaymentReceived }));
 
 const { POST, runtime, dynamic } = await import("@/app/api/webhooks/stripe/route");
 
@@ -25,6 +27,7 @@ describe("POST /api/webhooks/stripe", () => {
     process.env.STRIPE_WEBHOOK_SECRET = WEBHOOK_SECRET;
     withTx.mockClear();
     recordStripePaymentCommand.mockClear();
+    notifyPaymentReceived.mockClear();
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
@@ -118,5 +121,32 @@ describe("POST /api/webhooks/stripe", () => {
     expect(logged).not.toContain(signature);
     expect(logged).not.toContain("pi_test_1");
     expect(logged).toContain("evt_test_1");
+  });
+
+  it("emails once after a recorded payment, with the PAYMENT_RECORDED event id", async () => {
+    const { body, signature } = signed(checkoutEvent());
+    await POST(request(body, signature));
+    expect(notifyPaymentReceived).toHaveBeenCalledExactlyOnceWith("ev_1");
+    // The email runs after the transaction returned, never inside it.
+    expect(withTx.mock.invocationCallOrder[0]!).toBeLessThan(notifyPaymentReceived.mock.invocationCallOrder[0]!);
+  });
+
+  it("does not email for a duplicate delivery, an ignored event or a failed transaction", async () => {
+    recordStripePaymentCommand.mockResolvedValueOnce({ outcome: "duplicate" });
+    recordStripePaymentCommand.mockResolvedValueOnce({ outcome: "ignored", reason: "LIVE_MODE" });
+    const { body, signature } = signed(checkoutEvent());
+    await POST(request(body, signature));
+    await POST(request(body, signature));
+    withTx.mockRejectedValueOnce(new Error("boom"));
+    await POST(request(body, signature));
+    expect(notifyPaymentReceived).not.toHaveBeenCalled();
+  });
+
+  it("still returns 200 when the email step throws", async () => {
+    notifyPaymentReceived.mockRejectedValueOnce(new Error("resend down"));
+    const { body, signature } = signed(checkoutEvent());
+    const res = await POST(request(body, signature));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ received: true, outcome: "recorded" });
   });
 });
